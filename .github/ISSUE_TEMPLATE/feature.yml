@@ -1,0 +1,45 @@
+name: Feature Request
+description: Structured feature work item
+title: "[Feature]: "
+labels: ["type:feature", "state:backlog"]
+body:
+	- type: textarea
+		id: problem
+		attributes:
+			label: Problem Statement
+		validations:
+			required: true
+	- type: textarea
+		id: scope
+		attributes:
+			label: Scope
+		validations:
+			required: true
+	- type: textarea
+		id: non_goals
+		attributes:
+			label: Non-Goals
+		validations:
+			required: true
+	- type: textarea
+		id: acceptance
+		attributes:
+			label: Acceptance Criteria
+		validations:
+			required: true
+	- type: textarea
+		id: test_scenarios
+		attributes:
+			label: Test Scenarios
+		validations:
+			required: true
+	- type: dropdown
+		id: risk
+		attributes:
+			label: Risk Level
+			options:
+				- Low
+				- Medium
+				- High
+		validations:
+			required: true
