@@ -1,0 +1,38 @@
+@model EquipmentTracker.Web.ViewModels.CheckoutViewModel
+
+@{
+    ViewData["Title"] = "Check Out Equipment";
+}
+
+<h2>Check Out Equipment</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Checkout" method="post">
+            @Html.AntiForgeryToken()
+
+            <input type="hidden" asp-for="EquipmentItemId" />
+            <input type="hidden" asp-for="EquipmentItemName" />
+
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label class="form-label">Item</label>
+                <p class="form-control-plaintext fw-bold">@Model.EquipmentItemName</p>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="BorrowerName" class="form-label"></label>
+                <input asp-for="BorrowerName" class="form-control" placeholder="Your full name" />
+                <span asp-validation-for="BorrowerName" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Confirm Checkout</button>
+            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,16 @@
+using EquipmentTracker.Web.Models;
+
+namespace EquipmentTracker.Web.Services;
+
+public interface IEquipmentService
+{
+    IReadOnlyList<EquipmentItem> GetAllItems();
+    EquipmentItem? GetItem(int id);
+    EquipmentItem CreateItem(string name, string category);
+
+    /// <summary>Returns false if the item does not exist or is already checked out.</summary>
+    bool Checkout(int itemId, string borrowerName);
+
+    /// <summary>Returns false if the item does not exist or is already available.</summary>
+    bool Return(int itemId);
+}

@@ -1,0 +1,36 @@
+@model EquipmentTracker.Web.ViewModels.CreateEquipmentViewModel
+
+@{
+    ViewData["Title"] = "Add Equipment";
+}
+
+<h2>Add Equipment Item</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="e.g. Laptop" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Category" class="form-label"></label>
+                <input asp-for="Category" class="form-control" placeholder="e.g. Electronics" />
+                <span asp-validation-for="Category" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Add Item</button>
+            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
