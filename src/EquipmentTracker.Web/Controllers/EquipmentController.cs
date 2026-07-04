@@ -17,7 +17,12 @@ public class EquipmentController : Controller
     public IActionResult Index()
     {
         var items = _equipmentService.GetAllItems();
-        return View(items);
+        var model = new EquipmentListViewModel
+        {
+            Items = items,
+            AvailableCount = items.Count(i => i.IsAvailable)
+        };
+        return View(model);
     }
 
     // GET /Equipment/Create

@@ -7,6 +7,21 @@ public class EquipmentServiceTests
 {
     private static EquipmentService CreateService() => new EquipmentService();
 
+    // ── AvailableCount ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetAllItems_AvailableCount_DecreasesAfterCheckout()
+    {
+        var service = CreateService();
+        int before = service.GetAllItems().Count(i => i.IsAvailable);
+
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        int after = service.GetAllItems().Count(i => i.IsAvailable);
+        Assert.Equal(before - 1, after);
+    }
+
     // ── CreateItem ────────────────────────────────────────────────────────────
 
     [Fact]
