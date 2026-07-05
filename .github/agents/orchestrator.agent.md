@@ -31,5 +31,13 @@ For each open GitHub issue, check its labels and route as follows:
 2. For each issue, read its labels.
 3. Route each issue using the table above.
 4. Wait for each spawned task to complete before spawning the next.
-5. Output a brief cycle summary: issues checked, issues advanced, issues skipped.
-6. Sleep 90 seconds, then start a new cycle.
+5. Output a formatted cycle summary with explicit newlines:
+   echo ""
+   echo "--- Orchestrator Cycle Summary ---"
+   echo "Issues checked: N"
+   echo "Issues advanced to intake: N"
+   echo "Issues advanced to design: N"
+   echo "Issues blocked or complete: N"
+   echo ""
+6. Sleep 90 seconds: `sleep 90`
+7. Go back to step 1.
