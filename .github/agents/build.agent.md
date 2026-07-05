@@ -16,8 +16,32 @@ You will be given an issue number. Do the following in order:
    gh issue view NUMBER --comments --json comments
 3. Extract the JSON from the Design Decision comment and use it as context.
 4. Evaluate the build scope using the contract in `templates/skills/build-agent.md`.
-5. Post the JSON decision output as a comment:
-   gh issue comment NUMBER --body "## Build Decision\n\`\`\`json\nOUTPUT\n\`\`\`"
+5. Post the decision output as a comment with this structure:
+   ```markdown
+   ## Build Decision
+
+   **Status:** [COMPLETE | PARTIAL | BLOCKED]
+   **Summary:** [one-line implementation summary]
+
+   <details>
+   <summary>Decision Details (JSON)</summary>
+
+   ```json
+   {
+     "decision": "COMPLETE | PARTIAL | BLOCKED",
+     "changes_summary": "string describing implementation",
+     "files_changed": ["file.ts", "file.md"],
+     "tests_updated": ["test.spec.ts"],
+     "acceptance_criteria_covered": ["criterion 1"],
+     "remaining_work": ["work item"],
+     "blocker_reason": null,
+     "risks": ["risk item"],
+     "next_state": "In Build | In Verification | Blocked"
+   }
+   ```
+
+   </details>
+   ```
 6. Apply the label:
    - If COMPLETE: gh issue label NUMBER --add build-complete
    - If PARTIAL or BLOCKED: gh issue label NUMBER --add build-blocked

@@ -21,19 +21,47 @@ For each open GitHub issue, check its labels and route as follows:
 | Labels on issue    | Action                                                          |
 |--------------------|-----------------------------------------------------------------|
 | No pipeline labels | Spawn intake: task(description="Run intake on issue #N", agent_id="intake") |
-| intake-approved    | No action. Design routing coming in v2.                         |
-| intake-blocked     | Skip. Needs human revision.                                     |
-| build-complete     | Skip. Done.                                                     |
+| intake-blocked     | Skip. Needs human revision before re-evaluation.                |
 
 ## Cycle steps
 
 1. List all open issues using the `list_issues` GitHub MCP tool.
 2. For each issue found:
    - Run: `echo "Checking issue #N: TITLE"`
-   - Read its labels
+   - Read the issue details and current labels using `issue_read`
    - Determine routing based on the table above
    - Run: `echo "  -> Action: ROUTING DECISION (AGENT_NAME or SKIP)"`
-   - If routing to an agent, spawn the task
+   - If routing to an agent:
+     a) Post a routing decision comment to the issue with this structure:
+        ```markdown
+        ## Orchestrator Routing Decision (Cycle N)
+
+        **Status:** Routing to [AGENT_NAME]
+        **Current Labels:** [list labels or "none"]
+        **Reason:** [one-line reason]
+
+        **Next State:** Awaiting [agent_name] decision and labels
+
+        <details>
+        <summary>Evaluation Details (JSON)</summary>
+
+        ```json
+        {
+          "cycle": N,
+          "issue_id": N,
+          "labels_found": ["list", "of", "labels"],
+          "issue_age_minutes": 0,
+          "prior_decisions": ["list of agent decisions or null"],
+          "routing_decision": "ROUTE_TO_INTAKE",
+          "agent_name": "intake",
+          "reason": "No pipeline labels present; intake evaluation required",
+          "next_state": "Awaiting intake decision"
+        }
+        ```
+
+        </details>
+        ```
+     b) Spawn the task: `task(description="Run [agent_name] on issue #N", agent_id="[agent_name]")`
 3. Wait for each spawned task to complete before spawning the next.
 4. After all issues in this cycle are routed, output:
    echo ""
