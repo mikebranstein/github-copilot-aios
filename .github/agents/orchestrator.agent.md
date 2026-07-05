@@ -28,16 +28,19 @@ For each open GitHub issue, check its labels and route as follows:
 ## Cycle steps
 
 1. List all open issues using the `list_issues` GitHub MCP tool.
-2. For each issue, read its labels.
-3. Route each issue using the table above.
-4. Wait for each spawned task to complete before spawning the next.
-5. Output a formatted cycle summary with explicit newlines:
+2. For each issue found:
+   - Run: `echo "Checking issue #N: TITLE"`
+   - Read its labels
+   - Determine routing based on the table above
+   - Run: `echo "  -> Action: ROUTING DECISION (AGENT_NAME or SKIP)"`
+   - If routing to an agent, spawn the task
+3. Wait for each spawned task to complete before spawning the next.
+4. After all issues in this cycle are routed, output:
    echo ""
    echo "--- Orchestrator Cycle Summary ---"
    echo "Issues checked: N"
    echo "Issues advanced to intake: N"
-   echo "Issues advanced to design: N"
    echo "Issues blocked or complete: N"
    echo ""
-6. Sleep 90 seconds: `sleep 90`
-7. Go back to step 1.
+5. Sleep 90 seconds: `sleep 90`
+6. Go back to step 1.
