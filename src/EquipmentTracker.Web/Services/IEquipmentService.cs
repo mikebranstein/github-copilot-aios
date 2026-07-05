@@ -13,4 +13,7 @@ public interface IEquipmentService
 
     /// <summary>Returns false if the item does not exist or is already available.</summary>
     bool Return(int itemId);
+
+    /// <summary>Returns the current holder when checked out; otherwise null.</summary>
+    string? GetCurrentHolder(int itemId);
 }

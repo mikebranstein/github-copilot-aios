@@ -77,7 +77,19 @@ public class EquipmentController : Controller
         var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName);
         if (!success)
         {
-            ModelState.AddModelError(string.Empty, "This item is no longer available for checkout.");
+            var item = _equipmentService.GetItem(model.EquipmentItemId);
+            var holder = _equipmentService.GetCurrentHolder(model.EquipmentItemId);
+            var itemName = item?.Name ?? model.EquipmentItemName;
+
+            if (!string.IsNullOrWhiteSpace(itemName) && !string.IsNullOrWhiteSpace(holder))
+            {
+                ModelState.AddModelError(string.Empty, $"'{itemName}' is currently checked out by {holder}.");
+            }
+            else
+            {
+                ModelState.AddModelError(string.Empty, "This item is no longer available for checkout.");
+            }
+
             return View(model);
         }
 
