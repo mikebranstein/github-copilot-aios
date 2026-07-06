@@ -1,0 +1,49 @@
+@model EquipmentTracker.Web.ViewModels.CheckoutHistoryViewModel
+
+@{
+    ViewData["Title"] = $"Checkout History – {Model.EquipmentItemName}";
+}
+
+<h2>Checkout History</h2>
+<h4 class="text-muted">@Model.EquipmentItemName</h4>
+
+<div class="mb-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">&larr; Back to Equipment</a>
+</div>
+
+@if (!Model.History.Any())
+{
+    <div class="alert alert-info">No checkout history for this item.</div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Holder</th>
+                <th>Checked Out</th>
+                <th>Returned</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var record in Model.History)
+            {
+                <tr>
+                    <td>@record.BorrowerName</td>
+                    <td>@record.CheckedOutAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                    <td>
+                        @if (record.ReturnedAtUtc.HasValue)
+                        {
+                            @record.ReturnedAtUtc.Value.ToString("yyyy-MM-dd HH:mm")
+                            <text> UTC</text>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">Still Out</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -128,4 +128,75 @@ public class EquipmentServiceTests
 
         Assert.Null(holder);
     }
+
+    // ── GetCheckoutHistory ────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetCheckoutHistory_ReturnsEmpty_WhenItemHasNeverBeenCheckedOut()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+
+        var history = service.GetCheckoutHistory(item.Id);
+
+        Assert.Empty(history);
+    }
+
+    [Fact]
+    public void GetCheckoutHistory_ReturnsSingleRecord_AfterOneCheckout()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        var history = service.GetCheckoutHistory(item.Id);
+
+        Assert.Single(history);
+        Assert.Equal("Alice", history[0].BorrowerName);
+    }
+
+    [Fact]
+    public void GetCheckoutHistory_ReturnsNewestFirst_AfterMultipleCheckouts()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+
+        service.Checkout(item.Id, "Alice");
+        service.Return(item.Id);
+        service.Checkout(item.Id, "Bob");
+
+        var history = service.GetCheckoutHistory(item.Id);
+
+        Assert.Equal(2, history.Count);
+        // Newest (Bob) must be first
+        Assert.Equal("Bob", history[0].BorrowerName);
+        Assert.Equal("Alice", history[1].BorrowerName);
+    }
+
+    [Fact]
+    public void GetCheckoutHistory_ShowsReturnedAtUtc_AfterItemIsReturned()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+        service.Return(item.Id);
+
+        var history = service.GetCheckoutHistory(item.Id);
+
+        Assert.Single(history);
+        Assert.NotNull(history[0].ReturnedAtUtc);
+    }
+
+    [Fact]
+    public void GetCheckoutHistory_ActiveCheckout_HasNullReturnedAtUtc()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        var history = service.GetCheckoutHistory(item.Id);
+
+        Assert.Single(history);
+        Assert.Null(history[0].ReturnedAtUtc);
+    }
 }
