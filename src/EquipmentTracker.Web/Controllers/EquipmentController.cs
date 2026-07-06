@@ -7,20 +7,53 @@ namespace EquipmentTracker.Web.Controllers;
 public class EquipmentController : Controller
 {
     private readonly IEquipmentService _equipmentService;
+    private readonly IConfiguration _configuration;
 
-    public EquipmentController(IEquipmentService equipmentService)
+    public EquipmentController(IEquipmentService equipmentService, IConfiguration configuration)
     {
         _equipmentService = equipmentService;
+        _configuration = configuration;
     }
 
     // GET /Equipment
     public IActionResult Index()
     {
+        int overdueThresholdDays = _configuration.GetValue<int>("Checkout:OverdueThresholdDays", 7);
+        var utcNow = DateTime.UtcNow;
+
         var items = _equipmentService.GetAllItems();
+
+        var rows = items.Select(item =>
+        {
+            var activeRecord = item.IsAvailable
+                ? null
+                : _equipmentService.GetActiveCheckoutRecord(item.Id);
+
+            int daysCheckedOut = 0;
+            bool isOverdue = false;
+
+            if (activeRecord is not null)
+            {
+                daysCheckedOut = (int)(utcNow - activeRecord.CheckedOutAtUtc).TotalDays;
+                isOverdue = daysCheckedOut >= overdueThresholdDays;
+            }
+
+            return new EquipmentListItemViewModel
+            {
+                Id = item.Id,
+                Name = item.Name,
+                Category = item.Category,
+                IsAvailable = item.IsAvailable,
+                IsOverdue = isOverdue,
+                BorrowerName = activeRecord?.BorrowerName,
+                DaysCheckedOut = daysCheckedOut
+            };
+        }).ToList();
+
         var model = new EquipmentListViewModel
         {
-            Items = items,
-            AvailableCount = items.Count(i => i.IsAvailable)
+            Items = rows,
+            AvailableCount = rows.Count(r => r.IsAvailable)
         };
         return View(model);
     }

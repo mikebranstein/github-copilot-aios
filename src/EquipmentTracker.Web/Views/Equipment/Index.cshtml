@@ -51,6 +51,16 @@
                     else
                     {
                         <span class="badge bg-warning text-dark">Checked Out</span>
+
+                        @if (item.IsOverdue)
+                        {
+                            <span class="badge bg-danger ms-1"
+                                  data-bs-toggle="tooltip"
+                                  data-bs-placement="top"
+                                  title="@item.BorrowerName — @item.DaysCheckedOut day@(item.DaysCheckedOut == 1 ? "" : "s")">
+                                Overdue
+                            </span>
+                        }
                     }
                 </td>
                 <td>
@@ -71,3 +81,13 @@
         }
     </tbody>
 </table>
+
+@section Scripts {
+    <script>
+        // Initialise Bootstrap tooltips on the overdue badges
+        document.addEventListener('DOMContentLoaded', function () {
+            var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
+        });
+    </script>
+}

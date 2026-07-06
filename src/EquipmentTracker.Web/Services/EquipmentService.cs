@@ -84,4 +84,7 @@ public class EquipmentService : IEquipmentService
             .ToList()
             .AsReadOnly();
     }
+
+    public CheckoutRecord? GetActiveCheckoutRecord(int itemId) =>
+        _records.LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null);
 }

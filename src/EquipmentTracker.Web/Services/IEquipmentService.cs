@@ -19,4 +19,10 @@ public interface IEquipmentService
 
     /// <summary>Returns checkout records for the given item in reverse chronological order (newest first). Returns an empty list if the item has no history.</summary>
     IReadOnlyList<CheckoutRecord> GetCheckoutHistory(int itemId);
+
+    /// <summary>
+    /// Returns the active (not yet returned) checkout record for the given item,
+    /// or null if the item is currently available or does not exist.
+    /// </summary>
+    CheckoutRecord? GetActiveCheckoutRecord(int itemId);
 }
