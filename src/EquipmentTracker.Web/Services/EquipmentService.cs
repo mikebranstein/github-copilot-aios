@@ -87,4 +87,22 @@ public class EquipmentService : IEquipmentService
 
     public CheckoutRecord? GetActiveCheckoutRecord(int itemId) =>
         _records.LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null);
+
+    public IReadOnlyList<CheckoutHistoryEntry> GetAllCheckoutHistory()
+    {
+        // Build a lookup so we can resolve item names without repeated scans
+        var itemNameById = _items.ToDictionary(i => i.Id, i => i.Name);
+
+        return _records
+            .OrderByDescending(r => r.CheckedOutAtUtc)
+            .Select(r => new CheckoutHistoryEntry
+            {
+                ItemName       = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
+                HolderName     = r.BorrowerName,
+                CheckedOutAtUtc = r.CheckedOutAtUtc,
+                ReturnedAtUtc  = r.ReturnedAtUtc
+            })
+            .ToList()
+            .AsReadOnly();
+    }
 }

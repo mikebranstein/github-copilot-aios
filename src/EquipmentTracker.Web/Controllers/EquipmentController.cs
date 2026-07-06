@@ -130,7 +130,7 @@ public class EquipmentController : Controller
             return NotFound();
 
         var history = _equipmentService.GetCheckoutHistory(id);
-        var model = new CheckoutHistoryViewModel
+        var model = new ItemCheckoutHistoryViewModel
         {
             EquipmentItemId = item.Id,
             EquipmentItemName = item.Name,
