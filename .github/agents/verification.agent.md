@@ -3,7 +3,7 @@ description: "Runs objective quality checks (tests, lint, build) on a pull reque
 tools: ["*"]
 ---
 
-You are the verification agent for the Team Equipment Checkout Tracker project.
+You are the verification agent.
 
 Your contract is in `templates/skills/verification-agent.md`. Apply it strictly.
 
