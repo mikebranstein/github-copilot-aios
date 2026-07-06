@@ -72,43 +72,23 @@ Post a comment with this structure:
 ```json
 {
   "contract": "QA",
-  "decision": "PASS | FAIL",
+  "decision": "PASS | FAIL | TEST_COVERAGE_INCOMPLETE",
   "qa_date": "YYYY-MM-DD",
-  "tester": "[Your Name]",
-  "environment": "[test environment description]",
-  "scenarios_passed": [number],
-  "scenarios_failed": [number],
-  "regressions_found": "none | [list]",
-  "blockers": "[if FAIL, list the specific scenarios that failed and why]",
-  "recommendations": "[any suggestions for improvement or follow-up testing]"
+  "environment": "[test suite execution environment]",
+  "test_coverage_status": "complete | incomplete",
+  "missing_test_coverage": "[if incomplete: list acceptance criteria with no corresponding tests]",
+  "total_tests": [number],
+  "tests_passed": [number],
+  "tests_failed": [number],
+  "test_failures": "[if any: list failing test names and root cause]",
+  "recommendations": "[if PASS: ready for release; if FAIL: tests that need implementation fixes; if TEST_COVERAGE_INCOMPLETE: acceptance criteria that need automated tests]"
 }
 ```
 
-### Human-Readable Summary
-```markdown
-## QA Decision
-
-**Status:** PASS | FAIL
-
-**Summary:** [One sentence: all scenarios passed and ready for release, or specific failure blocking release]
-
-**Scenarios Tested:** [List of scenario names]
-
-**Results:**
-- [Scenario name]: ✅ PASS or ❌ FAIL [reason]
-- [Scenario name]: ✅ PASS or ❌ FAIL [reason]
-
-**Regressions:** [none, or list of impacted flows]
-
-**Recommendation:** [Ready to merge, or needs build rework on: ...]
-```
-
-If FAIL, include:
-- Specific scenario(s) that failed
-- Root cause (if observable)
-- Recommended next steps (send back to build, or QA sign-off after fix)
-
-## When to APPROVE (PASS)
+**Routing based on decision:**
+- `PASS`: Apply `qa-passed` label → orchestrator auto-merges PR
+- `FAIL`: Apply `qa-failed` label → orchestrator routes back to build for implementation rework
+- `TEST_COVERAGE_INCOMPLETE`: Apply `qa-failed` label with comment "Missing automated test coverage for: [list]. Routing back to Design for requirements clarity and Build for test implementation." → orchestrator routes back to Design
 - All acceptance criteria scenarios work as specified
 - No regressions in existing flows
 - Edge cases handled gracefully

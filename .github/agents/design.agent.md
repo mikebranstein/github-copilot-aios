@@ -64,11 +64,36 @@ You will be given an issue number. Do the following in order:
 
    </details>
 
-7. Apply labels based on decision:
-   - If PASS: gh issue label NUMBER --add design-approved
-   - If REVISE: gh issue label NUMBER --add design-blocked
-   - If BLOCKED: gh issue label NUMBER --add design-blocked
-8. Output a one-line summary:
-   - If PASS: "Issue #NUMBER: design PASS - ready for build"
+7. Determine if policy review is needed (governance gate):
+   
+   Apply `policy-review-required` label if ANY of these are true:
+   - Risk level is **High**
+   - **Breaking changes** to public APIs, data models, or authentication
+   - **PII/compliance/security** implications (data access changes, retention, encryption)
+   - Impact affects **multiple critical subsystems** (3+ areas)
+   - **Database schema changes** (migrations, new tables, structural changes)
+   - **New external dependencies** or third-party integrations
+   - Changes to **existing critical workflows** (checkout/return, payments, auth)
+   
+   Label command:
+   ```bash
+   gh issue label NUMBER --add policy-review-required
+   ```
+   
+   **Note:** This label tells the orchestrator to route through policy gate after QA passes. Low-risk, isolated changes skip policy review and auto-merge.
+
+8. Apply labels based on decision:
+   - If PASS (low/medium risk, no governance triggers): 
+     - `gh issue label NUMBER --add design-approved`
+     - DO NOT apply policy-review-required
+   - If PASS (high risk OR governance triggers present): 
+     - `gh issue label NUMBER --add design-approved`
+     - `gh issue label NUMBER --add policy-review-required`
+   - If REVISE: `gh issue label NUMBER --add design-blocked`
+   - If BLOCKED: `gh issue label NUMBER --add design-blocked`
+
+9. Output a one-line summary:
+   - If PASS (no policy needed): "Issue #NUMBER: design PASS - ready for build"
+   - If PASS (policy needed): "Issue #NUMBER: design PASS - flagged for policy review - ready for build"
    - If REVISE: "Issue #NUMBER: design REVISE - needs clarification, re-routing to intake"
    - If BLOCKED: "Issue #NUMBER: design BLOCKED - escalation required"
