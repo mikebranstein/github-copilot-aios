@@ -16,4 +16,7 @@ public interface IEquipmentService
 
     /// <summary>Returns the borrower name of the active (unreturned) checkout for the given item, or null if the item is available.</summary>
     string? GetCurrentHolder(int itemId);
+
+    /// <summary>Returns checkout records for the given item in reverse chronological order (newest first). Returns an empty list if the item has no history.</summary>
+    IReadOnlyList<CheckoutRecord> GetCheckoutHistory(int itemId);
 }

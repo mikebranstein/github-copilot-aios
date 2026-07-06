@@ -89,6 +89,23 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // GET /Equipment/History/5
+    public IActionResult History(int id)
+    {
+        var item = _equipmentService.GetItem(id);
+        if (item is null)
+            return NotFound();
+
+        var history = _equipmentService.GetCheckoutHistory(id);
+        var model = new CheckoutHistoryViewModel
+        {
+            EquipmentItemId = item.Id,
+            EquipmentItemName = item.Name,
+            History = history
+        };
+        return View(model);
+    }
+
     // POST /Equipment/Return/5
     [HttpPost]
     [ValidateAntiForgeryToken]

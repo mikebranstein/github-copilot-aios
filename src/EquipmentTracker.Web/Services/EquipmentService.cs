@@ -75,4 +75,13 @@ public class EquipmentService : IEquipmentService
             .LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null)
             ?.BorrowerName;
     }
+
+    public IReadOnlyList<CheckoutRecord> GetCheckoutHistory(int itemId)
+    {
+        return _records
+            .Where(r => r.EquipmentItemId == itemId)
+            .OrderByDescending(r => r.CheckedOutAtUtc)
+            .ToList()
+            .AsReadOnly();
+    }
 }
