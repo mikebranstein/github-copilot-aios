@@ -13,4 +13,7 @@ public interface IEquipmentService
 
     /// <summary>Returns false if the item does not exist or is already available.</summary>
     bool Return(int itemId);
+
+    /// <summary>Returns the borrower name of the active (unreturned) checkout for the given item, or null if the item is available.</summary>
+    string? GetCurrentHolder(int itemId);
 }

@@ -68,4 +68,11 @@ public class EquipmentService : IEquipmentService
 
         return true;
     }
+
+    public string? GetCurrentHolder(int itemId)
+    {
+        return _records
+            .LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null)
+            ?.BorrowerName;
+    }
 }
