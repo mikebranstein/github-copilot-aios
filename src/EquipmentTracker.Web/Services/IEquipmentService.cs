@@ -25,4 +25,10 @@ public interface IEquipmentService
     /// or null if the item is currently available or does not exist.
     /// </summary>
     CheckoutRecord? GetActiveCheckoutRecord(int itemId);
+
+    /// <summary>
+    /// Returns all checkout records across all items, sorted newest-first (by CheckedOutAtUtc descending).
+    /// Each entry includes the resolved item name.
+    /// </summary>
+    IReadOnlyList<CheckoutHistoryEntry> GetAllCheckoutHistory();
 }

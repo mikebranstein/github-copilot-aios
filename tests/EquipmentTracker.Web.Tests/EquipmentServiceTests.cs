@@ -267,4 +267,80 @@ public class EquipmentServiceTests
         Assert.True(record!.CheckedOutAtUtc >= before);
         Assert.True(record.CheckedOutAtUtc <= DateTime.UtcNow.AddSeconds(1));
     }
+
+    // ── GetAllCheckoutHistory ─────────────────────────────────────────────────
+
+    [Fact]
+    public void GetAllCheckoutHistory_ReturnsEmpty_WhenNoCheckoutsHaveOccurred()
+    {
+        var service = CreateService();
+
+        var history = service.GetAllCheckoutHistory();
+
+        Assert.Empty(history);
+    }
+
+    [Fact]
+    public void GetAllCheckoutHistory_ReturnsEntry_AfterCheckout()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        var history = service.GetAllCheckoutHistory();
+
+        Assert.Single(history);
+        Assert.Equal(item.Name, history[0].ItemName);
+        Assert.Equal("Alice", history[0].HolderName);
+        Assert.True(history[0].IsOpen);
+        Assert.Null(history[0].ReturnedAtUtc);
+    }
+
+    [Fact]
+    public void GetAllCheckoutHistory_SetsReturnedAtUtc_AfterReturn()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+        service.Return(item.Id);
+
+        var history = service.GetAllCheckoutHistory();
+
+        Assert.Single(history);
+        Assert.False(history[0].IsOpen);
+        Assert.NotNull(history[0].ReturnedAtUtc);
+    }
+
+    [Fact]
+    public void GetAllCheckoutHistory_SortedNewestFirst()
+    {
+        var service = CreateService();
+        var items = service.GetAllItems().Where(i => i.IsAvailable).Take(2).ToList();
+        Assert.True(items.Count >= 2, "Need at least 2 items for this test");
+
+        service.Checkout(items[0].Id, "Alice");
+        service.Checkout(items[1].Id, "Bob");
+
+        var history = service.GetAllCheckoutHistory();
+
+        // Newest checkout (Bob) should appear first
+        Assert.True(history[0].CheckedOutAtUtc >= history[1].CheckedOutAtUtc);
+    }
+
+    [Fact]
+    public void GetAllCheckoutHistory_IncludesEntriesForAllItems()
+    {
+        var service = CreateService();
+        var item1 = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item1.Id, "Alice");
+
+        var item2 = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item2.Id, "Bob");
+
+        var history = service.GetAllCheckoutHistory();
+
+        Assert.Equal(2, history.Count);
+        Assert.Contains(history, e => e.HolderName == "Alice");
+        Assert.Contains(history, e => e.HolderName == "Bob");
+    }
 }
