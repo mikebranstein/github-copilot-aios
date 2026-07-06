@@ -14,70 +14,42 @@ You run in a continuous self-directed loop. Do NOT call task_complete. Keep runn
 3. Wait 10 seconds: run the shell command `sleep 10`
 4. Go back to step 1
 
-## Cycle: pipeline routing (v3 - full pipeline)
+## Cycle: pipeline routing (v3 - full pipeline, depth-first)
 
-For each open GitHub issue, check its labels and route as follows:
+**Depth-first approach:** Find the FIRST issue that has not been completed or blocked, and advance it one stage further through the pipeline. Then on the next cycle, find the next issue. This ensures each issue flows through intake → design → build before starting a new one.
 
-| Labels on issue                        | Action                                                          |
-|----------------------------------------|-----------------------------------------------------------------|
-| No pipeline labels                     | Spawn intake: task(description="Run intake on issue #N", agent_id="intake") |
-| intake-approved only                   | Spawn design: task(description="Run design on issue #N", agent_id="design") |
-| intake-approved + design-approved      | Spawn build: task(description="Run build on issue #N", agent_id="build") |
-| Any blocked label                      | Skip. Needs human revision before continuing.                   |
-| build-complete                         | Skip. Done.                                                     |
+For the first non-complete, non-blocked issue found, route based on its current labels:
+
+| Current issue state              | Action                                                          |
+|----------------------------------|-----------------------------------------------------------------|
+| No pipeline labels               | Spawn intake: task(description="Run intake on issue #N", agent_id="intake") |
+| intake-approved (no design label) | Spawn design: task(description="Run design on issue #N", agent_id="design") |
+| design-approved (no build label) | Spawn build: task(description="Run build on issue #N", agent_id="build") |
+| Any blocked label                | Skip to next issue. Needs human revision before continuing.     |
+| build-complete                   | Skip to next issue. Done.                                        |
 
 ## Cycle steps
 
-1. List all open issues using the `list_issues` GitHub MCP tool.
-2. At the start of the cycle, determine which model you are currently using and log it (e.g., in your system prompt awareness or via available runtime information).
-3. For each issue found:
+1. List all open issues using the `list_issues` GitHub MCP tool in creation order.
+2. At the start of the cycle, determine which model you are currently using and log it.
+3. Iterate through issues. For the FIRST issue that is not blocked and not build-complete:
    - Run: `echo "Checking issue #N: TITLE"`
    - Read the issue details and current labels using `issue_read`
    - Determine routing based on the table above
-   - Run: `echo "  -> Action: ROUTING DECISION (AGENT_NAME or SKIP)"`
+   - Run: `echo "  -> Action: ROUTING DECISION"`
    - If routing to an agent:
-     a) Post a routing decision comment to the issue with this structure:
-        ```markdown
-        ## Orchestrator Routing Decision (Cycle N)
-
-        **Status:** Routing to [AGENT_NAME]
-        **Current Labels:** [list labels]
-        **Reason:** [one-line reason]
-        **Model:** [your active model name]
-
-        **Next State:** Awaiting [agent_name] decision and labels
-
-        <details>
-        <summary>Evaluation Details (JSON)</summary>
-
-        ```json
-        {
-          "cycle": N,
-          "issue_id": N,
-          "model_used": "[your active model]",
-          "labels_found": ["list", "of", "labels"],
-          "issue_age_minutes": 0,
-          "prior_decisions": ["list of agent decisions"],
-          "routing_decision": "ROUTE_TO_[STAGE]",
-          "agent_name": "[agent_name]",
-          "reason": "[reason for routing]",
-          "next_state": "Awaiting [agent_name] decision"
-        }
-        ```
-
-        </details>
-        ```
+     a) Post a routing decision comment to the issue
      b) Spawn the task: `task(description="Run [agent_name] on issue #N", agent_id="[agent_name]")`
-4. Wait for each spawned task to complete before spawning the next.
-5. After all issues in this cycle are routed, output:
+   - After taking action on this one issue, STOP iterating (do not process other issues in this cycle)
+4. Wait for the spawned task to complete.
+5. Output cycle summary:
    echo ""
    echo "--- Orchestrator Cycle Summary (Cycle N) ---"
    echo "Model: [your active model]"
-   echo "Issues checked: N"
-   echo "Issues advanced to intake: N"
-   echo "Issues advanced to design: N"
-   echo "Issues advanced to build: N"
-   echo "Issues blocked or complete: N"
+   echo "Issue focused on: #N [TITLE] -> ACTION"
+   echo "Issues in progress: X"
+   echo "Issues blocked: X"
+   echo "Issues complete: X"
    echo ""
 6. Sleep 10 seconds: `sleep 10`
 7. Go back to step 1.
