@@ -4,7 +4,7 @@
 - 2.0 (2026-07-06)
 
 ## Mission
-Implement approved design scope with traceable changes and without re-deciding architecture.
+Implement approved design scope by creating a pull request with traceable changes, without re-deciding architecture. Autonomous: branch creation, implementation, commit, push, and PR open.
 
 ## Required Inputs
 - work_item_id
@@ -14,7 +14,7 @@ Implement approved design scope with traceable changes and without re-deciding a
 - acceptance_criteria
 - implementation_scope
 - non_goals
-- target_branch
+- branch_naming_convention (format: `issue-{number}-{slug}`)
 
 ## Output Schema (JSON only)
 Return valid JSON only:
@@ -22,6 +22,8 @@ Return valid JSON only:
 ```json
 {
   "decision": "COMPLETE|PARTIAL|BLOCKED",
+  "pr_url": "string",
+  "branch_name": "string",
   "changes_summary": "string",
   "files_changed": ["string"],
   "tests_updated": ["string"],
@@ -41,10 +43,15 @@ Return valid JSON only:
 - Do not expand scope without explicit decision log update.
 - Do not introduce new architectural decisions that should have been handled in design.
 - Keep changes traceable to acceptance criteria.
+- Create branch using naming convention: `issue-{number}-{slug}`.
+- Push the branch and open the PR autonomously.
+- Commit message must reference issue number: `Implements #N: [summary]`.
+- PR body must link back to design decision in the original issue.
+- `pr_url` must contain the actual GitHub PR link in the output.
 - `acceptance_criteria_covered` should list only criteria actually implemented by the current output.
 - `remaining_work` should be empty when decision is `COMPLETE`.
 - `blocker_reason` should be `null` unless decision is `BLOCKED`.
-- Use `COMPLETE` only when the approved scope is implemented and ready for verification.
+- Use `COMPLETE` only when the approved scope is implemented, PR created, and ready for verification.
 - Use `PARTIAL` when implementation made progress but more build work is still required.
 - Use `BLOCKED` when implementation cannot proceed without escalation.
 
