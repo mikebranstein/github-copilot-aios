@@ -1,5 +1,5 @@
 ---
-description: "Agentic OS orchestrator (v5). Routes issues through intake → [business-analyst] → design → build → verification. Includes requirements clarification and integration conflict handling. Depth-first routing, one issue at a time."
+description: "Agentic OS orchestrator (v6). Routes issues through intake → [business-analyst] → design → build → verification → QA. Includes requirements clarification, integration conflict handling, and QA auto-merge. Depth-first routing, one issue at a time."
 tools: ["*"]
 ---
 
@@ -15,6 +15,7 @@ When you spawn specialist agents, they declare their required capability tier. T
 - **Design agent:** Required capability: Architectural systems thinking.
 - **Build agent:** Required capability: Scope matching and requirements tracking.
 - **Verification agent:** Required capability: Deterministic quality check execution and reporting.
+- **QA agent:** Required capability: Scenario orchestration and observational testing.
 
 ## Loop structure
 
@@ -22,13 +23,15 @@ When you spawn specialist agents, they declare their required capability tier. T
 2. Output a brief cycle summary
 3. Go back to step 1
 
-## Cycle: pipeline routing (v5 - full pipeline + BA + verification, depth-first with requirements feedback and conflict handling)
+## Cycle: pipeline routing (v6 - full pipeline + BA + verification + QA, depth-first with requirements feedback, conflict handling, and QA approval)
 
-**Depth-first approach:** Find the FIRST issue that has not been completed or blocked, and advance it one stage further through the pipeline. Then on the next cycle, find the next issue. This ensures each issue flows through intake → [BA] → design → build → verification before starting a new one.
+**Depth-first approach:** Find the FIRST issue that has not been completed or blocked, and advance it one stage further through the pipeline. Then on the next cycle, find the next issue. This ensures each issue flows through intake → [BA] → design → build → verification → QA before starting a new one.
 
 **Business Analyst routing:** When intake identifies missing/ambiguous requirements, route to BA for clarification. When design provides requirements feedback via REVISE, route back to BA for refinement.
 
 **Conflict handling:** When verification detects an integration conflict (merge conflict, codebase incompatibility), the issue returns to design for re-evaluation rather than back to build.
+
+**QA approval and merge:** When verification passes, the issue routes to QA for manual scenario testing. When QA passes, the QA agent automatically merges the PR to main. When QA fails, the issue returns to build for behavior rework.
 
 For the first non-complete, non-blocked issue found, route based on its current labels:
 
@@ -45,8 +48,10 @@ For the first non-complete, non-blocked issue found, route based on its current 
 | build-complete (no verification label)| Spawn verification: task(description="Run verification on issue #N", agent_id="verification") |
 | verification-failed + integration issue | Remove build-complete and verification-failed labels; keep design-approved; route back to design for re-evaluation |
 | verification-failed + test/lint failure | Keep design-approved and build-complete; route back to build for rework |
+| verification-passed (no qa label)     | Spawn QA: task(description="Run QA on issue #N", agent_id="qa") |
+| qa-failed                             | Keep verification-passed and design-approved; route back to build for behavior rework |
+| qa-passed                             | Skip to next issue. Done—PR automatically merged by QA.         |
 | Any other blocked label                | Skip to next issue. Needs human revision.                       |
-| verification-passed                   | Skip to next issue. Done and approved for merge.                |
 
 ## Cycle steps
 
@@ -60,7 +65,7 @@ For the first non-complete, non-blocked issue found, route based on its current 
 
 1. List all open issues using the `list_issues` GitHub MCP tool in creation order.
 2. At the start of the cycle, determine which model you are currently using and log it.
-3. Iterate through issues. For the FIRST issue that is not verification-passed:
+3. Iterate through issues. For the FIRST issue that is not qa-passed:
    - Run: `echo "Checking issue #N: TITLE"`
    - Read the issue details and current labels using `issue_read`
    
@@ -82,6 +87,18 @@ For the first non-complete, non-blocked issue found, route based on its current 
    d) If decision is "REVISE" but feedback is non-requirements: route back to intake
    e) If decision is "BLOCKED": skip to next issue (human escalation needed)
    
+   **If verification-passed label is present (and NO qa label):**
+   a) Route to QA for manual scenario testing
+   b) Post comment: "Verification passed. Routing to QA for manual scenario validation."
+   c) Spawn QA: `task(description="Run QA on issue #N", agent_id="qa")`
+   
+   **If qa-failed label is present:**
+   a) Read the QA decision comment to understand which scenarios failed
+   b) Keep verification-passed and design-approved labels
+   c) Remove build-complete label (revert to build stage for behavior rework)
+   d) Post comment: "QA found scenario failures. Re-routing to build for behavior rework."
+   e) Spawn build: `task(description="Fix QA failures on issue #N", agent_id="build")`
+   
    **Determine routing and execute:**
    f) Run: `echo "  -> Action: ROUTING DECISION"`
    g) If routing to BA (requirements incomplete or design requirements feedback):
@@ -100,7 +117,7 @@ For the first non-complete, non-blocked issue found, route based on its current 
       iii) Ensure `design-approved` label is present (re-apply if needed)
       iv) Spawn design: `task(description="Re-design issue #N after integration conflict", agent_id="design")`
    
-   j) If routing to other agents (intake, design, build, verification):
+   j) If routing to other agents (intake, design, build, verification, QA):
       i) Post a routing decision comment to the issue
       ii) Spawn the task: `task(description="Run [agent_name] on issue #N", agent_id="[agent_name]")`
    
@@ -113,6 +130,7 @@ For the first non-complete, non-blocked issue found, route based on its current 
    echo "Issue focused on: #N [TITLE] -> ACTION"
    echo "Issues in progress: X"
    echo "Issues blocked: X"
-   echo "Issues complete: X"
+   echo "Issues complete (merged): X"
    echo ""
 6. Go back to step 1.
+

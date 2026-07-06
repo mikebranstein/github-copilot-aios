@@ -1,5 +1,5 @@
 ---
-description: "Runs objective quality checks (tests, lint, build) on a pull request by rebasing onto main to incorporate recent changes, then detecting merge conflicts and integration issues. Posts a pass/fail decision."
+description: "Runs objective quality checks (tests, lint, build) on a pull request by rebasing onto main to incorporate recent changes, then detecting merge conflicts and integration issues. Posts a pass/fail decision. Does not merge—routes to QA for final decision."
 tools: ["*"]
 ---
 
@@ -83,7 +83,7 @@ You will be given an issue number. Do the following in order:
      "failing_checks": ["list of failed checks"],
      "root_causes": ["list of root causes"],
      "recommended_fixes": ["list of fixes"],
-     "next_state": "Ready for Merge | In Design | In Build"
+     "next_state": "Ready for QA | In Design | In Build"
    }
    ```
 
@@ -94,16 +94,13 @@ You will be given an issue number. Do the following in order:
     - If FAIL with integration_conflict: gh issue label NUMBER --add verification-failed
     - If FAIL with test/lint/build failure: gh issue label NUMBER --add verification-failed
 
-14. **If PASS, automatically merge the PR:**
-    - Extract the PR number from the PR URL
-    - Run: `gh pr merge PR_NUMBER --squash --delete-branch`
-    - This merges the rebased code and deletes the feature branch
-
-15. Post the same decision as a comment on the GitHub issue (link back to PR decision):
+14. Post the same decision as a comment on the GitHub issue (link back to PR decision):
 
     [See verification decision on PR](PR_URL)
 
-16. Output a one-line summary:
-    - If PASS: "Issue #NUMBER: verification PASS - rebased and merged to main"
+15. Output a one-line summary:
+    - If PASS: "Issue #NUMBER: verification PASS - ready for QA"
     - If FAIL (integration): "Issue #NUMBER: verification FAIL - rebase conflicts detected, re-routing to design"
     - If FAIL (test/lint/build after rebase): "Issue #NUMBER: verification FAIL - see PR for details"
+
+**IMPORTANT:** Do not merge the PR. The orchestrator will route verification-passed issues to QA for manual scenario testing. QA will decide whether to merge or re-route to build.
