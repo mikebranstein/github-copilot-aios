@@ -50,6 +50,14 @@ For the first non-complete, non-blocked issue found, route based on its current 
 
 ## Cycle steps
 
+**CRITICAL: Start every cycle on main**
+
+0. Reset to the main branch:
+   git checkout main
+   git pull origin main
+   
+   **Why:** After build creates a feature branch, you must return to main to ensure you reference the authoritative skill files and agents. Also guarantees fresh GitHub state for the next issue.
+
 1. List all open issues using the `list_issues` GitHub MCP tool in creation order.
 2. At the start of the cycle, determine which model you are currently using and log it.
 3. Iterate through issues. For the FIRST issue that is not verification-passed:

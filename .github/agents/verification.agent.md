@@ -1,5 +1,5 @@
 ---
-description: "Runs objective quality checks (tests, lint, build) on a pull request by detecting the project's tech stack. Detects merge conflicts and integration issues. Posts a pass/fail decision."
+description: "Runs objective quality checks (tests, lint, build) on a pull request by rebasing onto main to incorporate recent changes, then detecting merge conflicts and integration issues. Posts a pass/fail decision."
 tools: ["*"]
 ---
 
@@ -35,24 +35,30 @@ You will be given an issue number. Do the following in order:
    git checkout BRANCH_NAME
    git pull origin BRANCH_NAME
    
-   **IMPORTANT:** If this step fails with a merge conflict error or fails to sync the branch with main, that is an integration conflict. Record it as failure type: `integration_conflict`. Root cause: "Branch conflicts with main after recent merges."
+   **IMPORTANT:** Main branch is the authoritative source of truth. This PR must be verified against the current state of main.
 
-7. **Detect the project's tech stack** by examining the repository structure and configuration files (e.g., package.json, pom.xml, build.gradle, Makefile, setup.py, etc.).
+7. **Rebase onto main to get the authoritative current state:**
+   - Run: `git rebase origin/main`
+   - This ensures all checks run against the latest code that's currently in main
+   - If rebase fails with conflicts: The PR conflicts with what's currently in main. This must be resolved. Route back to design and build. They need to resolve the conflicts against the current main and rebuild. Record failure type: `integration_conflict`. Post decision with "Rebase conflicts detected against current main. Re-routing to design/build to resolve conflicts."
+   - If rebase succeeds: Continue with the rebased code (now aligned with current main)
 
-8. If checkout succeeds, run verification checks according to the contract in `templates/skills/verification-agent.md`:
+8. **Detect the project's tech stack** by examining the repository structure and configuration files.
+
+9. If checkout and rebase both succeed, run verification checks according to the contract in `templates/skills/verification-agent.md`:
    - **Run tests** using the appropriate test command for the detected tech stack
    - **Run lint** using the appropriate lint command (if applicable to the tech stack)
    - **Run build** using the appropriate build command for the detected tech stack
    
    Determine the correct commands by examining the project's configuration files and typical conventions for that tech stack.
 
-9. Collect results: PASS if all checks succeed, FAIL if any check fails.
-10. Determine failure type:
-    - `integration_conflict`: Branch sync or merge conflict detected
-    - `test_failure`: Test suite failed
-    - `lint_failure`: Lint checks failed
-    - `build_failure`: Build command failed
-11. Post the decision output as a comment on the PR with this structure:
+10. Collect results: PASS if all checks succeed, FAIL if any check fails.
+11. Determine failure type:
+    - `integration_conflict`: Rebase conflicts detected or branch sync failure
+    - `test_failure`: Test suite failed (after rebase)
+    - `lint_failure`: Lint checks failed (after rebase)
+    - `build_failure`: Build command failed (after rebase)
+12. Post the decision output as a comment on the PR with this structure:
 
    ## Verification Decision
 
@@ -69,6 +75,7 @@ You will be given an issue number. Do the following in order:
      "decision": "PASS | FAIL",
      "model_used": "[your active model]",
      "build_system": "[detected tech stack]",
+     "rebased_onto_main": true,
      "failure_type": "[integration_conflict | test_failure | lint_failure | build_failure | null if PASS]",
      "build_status": "PASS | FAIL",
      "test_status": "PASS | FAIL",
@@ -76,27 +83,27 @@ You will be given an issue number. Do the following in order:
      "failing_checks": ["list of failed checks"],
      "root_causes": ["list of root causes"],
      "recommended_fixes": ["list of fixes"],
-     "next_state": "Ready for Merge | In Build | In Design"
+     "next_state": "Ready for Merge | In Design | In Build"
    }
    ```
 
    </details>
 
-12. Apply the label to the issue:
+13. Apply the label to the issue:
     - If PASS: gh issue label NUMBER --add verification-passed
     - If FAIL with integration_conflict: gh issue label NUMBER --add verification-failed
     - If FAIL with test/lint/build failure: gh issue label NUMBER --add verification-failed
 
-13. **If PASS, automatically merge the PR:**
+14. **If PASS, automatically merge the PR:**
     - Extract the PR number from the PR URL
     - Run: `gh pr merge PR_NUMBER --squash --delete-branch`
-    - This merges the PR and deletes the feature branch
+    - This merges the rebased code and deletes the feature branch
 
-14. Post the same decision as a comment on the GitHub issue (link back to PR decision):
+15. Post the same decision as a comment on the GitHub issue (link back to PR decision):
 
     [See verification decision on PR](PR_URL)
 
-15. Output a one-line summary:
-    - If PASS: "Issue #NUMBER: verification PASS - PR automatically merged to main"
-    - If FAIL (integration): "Issue #NUMBER: verification FAIL - integration conflict detected, re-routing to design"
-    - If FAIL (test/lint/build): "Issue #NUMBER: verification FAIL - see PR for details"
+16. Output a one-line summary:
+    - If PASS: "Issue #NUMBER: verification PASS - rebased and merged to main"
+    - If FAIL (integration): "Issue #NUMBER: verification FAIL - rebase conflicts detected, re-routing to design"
+    - If FAIL (test/lint/build after rebase): "Issue #NUMBER: verification FAIL - see PR for details"
