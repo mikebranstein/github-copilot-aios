@@ -1,8 +1,10 @@
 ---
 name: PM Idea
-description: Submit a feature idea for product discovery
+about: Submit a feature idea for product discovery
 title: "[PM Idea]: "
-labels: ["pm-idea"]
+labels: ''
+assignees: ''
+
 ---
 
 ## Feature Idea (1-3 sentences)
