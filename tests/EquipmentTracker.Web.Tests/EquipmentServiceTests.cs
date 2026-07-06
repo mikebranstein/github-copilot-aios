@@ -199,4 +199,72 @@ public class EquipmentServiceTests
         Assert.Single(history);
         Assert.Null(history[0].ReturnedAtUtc);
     }
+
+    // ── GetActiveCheckoutRecord ───────────────────────────────────────────────
+
+    [Fact]
+    public void GetActiveCheckoutRecord_ReturnsNull_WhenItemIsAvailable()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+
+        var record = service.GetActiveCheckoutRecord(item.Id);
+
+        Assert.Null(record);
+    }
+
+    [Fact]
+    public void GetActiveCheckoutRecord_ReturnsRecord_WhenItemIsCheckedOut()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        var record = service.GetActiveCheckoutRecord(item.Id);
+
+        Assert.NotNull(record);
+        Assert.Equal("Alice", record!.BorrowerName);
+        Assert.Equal(item.Id, record.EquipmentItemId);
+        Assert.Null(record.ReturnedAtUtc);
+    }
+
+    [Fact]
+    public void GetActiveCheckoutRecord_ReturnsNull_AfterItemIsReturned()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+        service.Return(item.Id);
+
+        var record = service.GetActiveCheckoutRecord(item.Id);
+
+        Assert.Null(record);
+    }
+
+    [Fact]
+    public void GetActiveCheckoutRecord_ReturnsNull_ForNonExistentItem()
+    {
+        var service = CreateService();
+
+        var record = service.GetActiveCheckoutRecord(9999);
+
+        Assert.Null(record);
+    }
+
+    // ── Overdue computation ───────────────────────────────────────────────────
+
+    [Fact]
+    public void GetActiveCheckoutRecord_CheckedOutAtUtc_IsRecentAfterCheckout()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        var before = DateTime.UtcNow.AddSeconds(-1);
+
+        service.Checkout(item.Id, "Bob");
+
+        var record = service.GetActiveCheckoutRecord(item.Id);
+        Assert.NotNull(record);
+        Assert.True(record!.CheckedOutAtUtc >= before);
+        Assert.True(record.CheckedOutAtUtc <= DateTime.UtcNow.AddSeconds(1));
+    }
 }
