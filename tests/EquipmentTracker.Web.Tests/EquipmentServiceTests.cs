@@ -90,4 +90,42 @@ public class EquipmentServiceTests
 
         Assert.False(result);
     }
+
+    // ── GetCurrentHolder ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void GetCurrentHolder_ReturnsNull_WhenItemIsAvailable()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+
+        var holder = service.GetCurrentHolder(item.Id);
+
+        Assert.Null(holder);
+    }
+
+    [Fact]
+    public void GetCurrentHolder_ReturnsBorrowerName_WhenItemIsCheckedOut()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+
+        var holder = service.GetCurrentHolder(item.Id);
+
+        Assert.Equal("Alice", holder);
+    }
+
+    [Fact]
+    public void GetCurrentHolder_ReturnsNull_AfterItemIsReturned()
+    {
+        var service = CreateService();
+        var item = service.GetAllItems().First(i => i.IsAvailable);
+        service.Checkout(item.Id, "Alice");
+        service.Return(item.Id);
+
+        var holder = service.GetCurrentHolder(item.Id);
+
+        Assert.Null(holder);
+    }
 }
