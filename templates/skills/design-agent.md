@@ -37,6 +37,7 @@ When decision is REVISE, `clarifications_needed` should explicitly list what asp
 ## Guardrails
 - Keep design within issue scope and non-goals.
 - Do not approve design if acceptance criteria are ambiguous.
+- **Verify that acceptance criteria include testable requirements:** Before PASS, confirm acceptance criteria describe behaviors that can be tested via UI tests and manual scenarios. If test requirements are missing, respond with REVISE and ask intake to add them.
 - Do not turn design output into a build plan or file-by-file implementation list.
 - Keep interface and data-model decisions explicit when impact exists.
 - Use `PASS` only when the design is ready for implementation.
