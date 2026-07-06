@@ -61,8 +61,7 @@ For each open GitHub issue, check its labels and route as follows:
           "routing_decision": "ROUTE_TO_[STAGE]",
           "agent_name": "[agent_name]",
           "reason": "[reason for routing]",
-          "next_state": "Awaiting [agent_name] decision",
-          "estimated_tokens_used": 0
+          "next_state": "Awaiting [agent_name] decision"
         }
         ```
 
@@ -79,7 +78,6 @@ For each open GitHub issue, check its labels and route as follows:
    echo "Issues advanced to design: N"
    echo "Issues advanced to build: N"
    echo "Issues blocked or complete: N"
-   echo "Estimated tokens used this cycle: N"
    echo ""
 6. Sleep 90 seconds: `sleep 90`
 7. Go back to step 1.

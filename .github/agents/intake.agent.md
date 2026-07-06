@@ -47,8 +47,7 @@ You will be given an issue number. Do the following in order:
      "questions": ["question text"],
      "next_state": "In Progress | Blocked",
      "summary": "one-line deterministic rationale",
-     "confidence": 0.0,
-     "estimated_tokens_used": 0
+     "confidence": 0.0
    }
    ```
 
@@ -57,4 +56,4 @@ You will be given an issue number. Do the following in order:
 5. Apply the label that matches the decision:
    - If READY: gh issue label NUMBER --add intake-approved
    - If BLOCKED: gh issue label NUMBER --add intake-blocked
-6. Output a one-line summary: "Issue #NUMBER: intake DECISION - CONTRACT SUMMARY (used ~N tokens with [model])"
+6. Output a one-line summary: "Issue #NUMBER: intake DECISION - CONTRACT SUMMARY"
