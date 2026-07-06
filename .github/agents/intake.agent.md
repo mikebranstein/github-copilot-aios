@@ -28,7 +28,7 @@ You will be given an issue number. Do the following in order:
 2. Determine which model you are currently using and track it for this execution.
 3. Evaluate the issue body against the contract in `templates/skills/intake-agent.md`.
 4. Post the decision output as a comment with this structure:
-   ```markdown
+
    ## Intake Decision
 
    **Status:** [READY | BLOCKED]
@@ -52,7 +52,6 @@ You will be given an issue number. Do the following in order:
    ```
 
    </details>
-   ```
 5. Apply the label that matches the decision:
    - If READY: gh issue label NUMBER --add intake-approved
    - If BLOCKED: gh issue label NUMBER --add intake-blocked

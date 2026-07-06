@@ -32,7 +32,7 @@ You will be given an issue number. Do the following in order:
 4. Extract the JSON from the Intake Decision comment and use it as context.
 5. Evaluate the design using the contract in `templates/skills/design-agent.md`.
 6. Post the decision output as a comment with this structure:
-   ```markdown
+
    ## Design Decision
 
    **Status:** [PASS | BLOCKED]
@@ -56,7 +56,6 @@ You will be given an issue number. Do the following in order:
    ```
 
    </details>
-   ```
 7. Apply the label:
    - If PASS: gh issue label NUMBER --add design-approved
    - If BLOCKED: gh issue label NUMBER --add design-blocked

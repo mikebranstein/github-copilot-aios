@@ -11,7 +11,7 @@ You run in a continuous self-directed loop. Do NOT call task_complete. Keep runn
 
 1. Run one cycle (see below)
 2. Output a brief cycle summary
-3. Wait 90 seconds: run the shell command `sleep 90`
+3. Wait 10 seconds: run the shell command `sleep 10`
 4. Go back to step 1
 
 ## Cycle: pipeline routing (v3 - full pipeline)
@@ -79,5 +79,5 @@ For each open GitHub issue, check its labels and route as follows:
    echo "Issues advanced to build: N"
    echo "Issues blocked or complete: N"
    echo ""
-6. Sleep 90 seconds: `sleep 90`
+6. Sleep 10 seconds: `sleep 10`
 7. Go back to step 1.
