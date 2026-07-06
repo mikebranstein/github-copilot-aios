@@ -2,7 +2,7 @@
 name: Strategic Opportunity
 about: PM research, validation, and strategic decision
 title: "[Strategic Opportunity]: "
-labels: ''
+labels: 'pm-opportunity'
 assignees: ''
 
 ---

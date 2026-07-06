@@ -2,7 +2,7 @@
 name: PM Idea
 about: Submit a feature idea for product discovery
 title: "[PM Idea]: "
-labels: ''
+labels: 'pm-idea'
 assignees: ''
 
 ---
