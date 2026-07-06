@@ -27,32 +27,36 @@ You will be given an issue number that is ready for QA (already passed verificat
 1. Read the issue using the GitHub MCP `issue_read` tool.
 2. Read the issue comments to find the build decision:
    gh issue view NUMBER --comments --json comments
-3. Extract the PR URL and branch name from the Build Decision comment.
-4. **Check out and pull the PR branch:**
+3. Extract the PR URL, branch name, and `tests_updated` field from the Build Decision comment.
+4. Read the design specification comment to extract acceptance criteria.
+
+5. **Validate automated test coverage:**
+   - For each acceptance criterion, verify a corresponding test exists in the `tests_updated` list
+   - If any acceptance criterion lacks a corresponding automated test: Post a `TEST_COVERAGE_INCOMPLETE` decision, document the gap, and route back to Design
+   - If all acceptance criteria have corresponding tests: Continue to step 6
+
+6. **Check out and pull the PR branch:**
    git checkout BRANCH_NAME
    git pull origin BRANCH_NAME
    
    **CRITICAL:** You must work in the context of the feature branch. This is the code that was built and verified.
 
-5. Read the design specification comment to extract QA scenarios and acceptance criteria.
-6. Read the verification result comment to understand what automated checks passed and what you need to validate manually.
-7. Load the QA scenarios from the issue or use the QA Checklist template (see `templates/qa-checklist.md`).
-8. **Execute each scenario manually on the checked-out branch:**
-   - Follow the precondition setup using the built feature (on the current branch)
-   - Execute the documented steps
-   - Observe the actual result
-   - Record pass/fail and any deviation from expected behavior
-9. **Execute regression checks** on existing critical workflows (test on the current branch to ensure no regressions).
-10. **Document edge cases** you discover during testing (boundary conditions, unusual data, error paths).
-11. **Collect results:**
-    - PASS if all scenarios pass, no regressions, error handling works, performance is acceptable
-    - FAIL if any scenario fails or regressions detected
-12. **Determine failure type (if FAIL):**
-    - `behavior_failure`: Scenario does not match acceptance criteria
-    - `regression_failure`: Existing functionality broken
-    - `error_handling_failure`: Crashes or unclear error messages
-    - `edge_case_failure`: Edge case not properly handled
-13. Post the QA decision as a comment on the issue with this structure:
+7. Execute the automated test suite using the test command documented by Build:
+   [Extract and run the exact test command from Build Decision]
+
+8. **Capture test results:**
+   - Total number of tests
+   - Number passed
+   - Number failed
+   - Any test errors or exceptions
+   - Test output/logs
+
+9. **Determine decision:**
+   - PASS if all tests pass with 100% success
+   - FAIL if any test fails, throws error, or times out
+   - TEST_COVERAGE_INCOMPLETE if step 5 found gaps (do not run tests in this case)
+
+10. Post the QA decision as a comment on the issue with JSON structure from the contract.
 
 ```json
 {

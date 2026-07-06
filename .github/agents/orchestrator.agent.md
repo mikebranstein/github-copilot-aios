@@ -49,7 +49,8 @@ For the first non-complete, non-blocked issue found, route based on its current 
 | verification-failed + integration issue | Remove build-complete and verification-failed labels; keep design-approved; route back to design for re-evaluation |
 | verification-failed + test/lint failure | Keep design-approved and build-complete; route back to build for rework |
 | verification-passed (no qa label)     | Spawn QA: task(description="Run QA on issue #N", agent_id="qa") |
-| qa-failed                             | Keep verification-passed and design-approved; route back to build for behavior rework |
+| qa-failed (decision: TEST_COVERAGE_INCOMPLETE) | Remove build-complete; keep design-approved; route back to design for acceptance criteria clarity and test coverage |
+| qa-failed (decision: FAIL or other)   | Keep verification-passed and design-approved; route back to build for implementation rework |
 | qa-passed                             | Skip to next issue. Done—PR automatically merged by QA.         |
 | Any other blocked label                | Skip to next issue. Needs human revision.                       |
 
@@ -93,11 +94,19 @@ For the first non-complete, non-blocked issue found, route based on its current 
    c) Spawn QA: `task(description="Run QA on issue #N", agent_id="qa")`
    
    **If qa-failed label is present:**
-   a) Read the QA decision comment to understand which scenarios failed
-   b) Keep verification-passed and design-approved labels
-   c) Remove build-complete label (revert to build stage for behavior rework)
-   d) Post comment: "QA found scenario failures. Re-routing to build for behavior rework."
-   e) Spawn build: `task(description="Fix QA failures on issue #N", agent_id="build")`
+   a) Read the QA decision comment to understand the failure type
+   b) Extract the `decision` field from the JSON
+   c) If decision is "TEST_COVERAGE_INCOMPLETE":
+      i) Read the QA comment for which acceptance criteria lack automated tests
+      ii) Remove build-complete label
+      iii) Keep design-approved and verification-passed labels
+      iv) Post comment: "QA detected missing test coverage for acceptance criteria: [list]. Re-routing to design for requirements clarity and build for test implementation."
+      v) Spawn design: `task(description="Clarify testable requirements for issue #N - missing automated test coverage", agent_id="design")`
+   d) If decision is "FAIL" (test failures):
+      i) Keep verification-passed and design-approved labels
+      ii) Remove build-complete label
+      iii) Post comment: "QA found test failures. Re-routing to build for implementation rework."
+      iv) Spawn build: `task(description="Fix QA test failures on issue #N", agent_id="build")`
    
    **Determine routing and execute:**
    f) Run: `echo "  -> Action: ROUTING DECISION"`
