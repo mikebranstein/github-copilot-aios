@@ -25,11 +25,14 @@ Return valid JSON only:
   "data_model_impact": "none|minimal|moderate|major",
   "risks": ["string"],
   "mitigations": ["string"],
-  "next_state": "In Design|In Build|Blocked"
+  "clarifications_needed": ["string (only if REVISE)"],
+  "next_state": "In Build|In Design|Blocked"
 }
 ```
 
-`design_summary` should briefly explain what is changing, what stays stable, and why the design is acceptable.
+`design_summary` should briefly explain what is changing, what stays stable, and why the design is acceptable (or what needs clarification if REVISE).
+
+When decision is REVISE, `clarifications_needed` should explicitly list what aspects need clarification or narrowing before design can be approved.
 
 ## Guardrails
 - Keep design within issue scope and non-goals.
@@ -44,7 +47,8 @@ Return valid JSON only:
 Escalate when design requires breaking API changes, cross-team dependencies, or architectural changes that cannot be justified from the current issue context.
 
 ## Gate Rule
-- `PASS` maps to `next_state = In Build`.
-- `REVISE` maps to `next_state = In Design`.
-- `BLOCKED` maps to `next_state = Blocked`.
+- `PASS` maps to `next_state = In Build`. Design-approved label applied. Build starts.
+- `REVISE` maps to `next_state = In Design`. Design-blocked label applied. The issue returns to intake with clarifications in the design decision JSON. Intake re-clarifies requirements based on design feedback. Design runs again on next cycle.
+- `BLOCKED` maps to `next_state = Blocked`. Design-blocked label applied. Needs human escalation and decision before proceeding.
 - Build starts only when decision is PASS.
+- Orchestrator recognizes design-blocked with REVISE and re-routes to intake (not skipped as a blocker).

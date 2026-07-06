@@ -43,7 +43,7 @@ You will be given an issue number. Do the following in order:
 10. Create a pull request:
     gh pr create --title "Issue #N: [title]" --body "Implements #N. See design decision in issue #N for context." --head issue-N-slug
 11. Post the decision output as a comment on the issue with this structure:
-    ```markdown
+
     ## Build Decision
 
     **Status:** [COMPLETE | PARTIAL | BLOCKED]
@@ -72,7 +72,6 @@ You will be given an issue number. Do the following in order:
     ```
 
     </details>
-    ```
 12. Apply the label:
     - If COMPLETE: gh issue label NUMBER --add build-complete
     - If PARTIAL or BLOCKED: gh issue label NUMBER --add build-blocked
