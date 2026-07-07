@@ -1,5 +1,6 @@
 using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace EquipmentTracker.Web.Tests;

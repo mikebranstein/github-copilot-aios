@@ -1,0 +1,27 @@
+@model EquipmentTracker.Web.ViewModels.CfoReportViewModel
+
+@{
+    ViewData["Title"] = "CFO Executive Report";
+}
+
+<div class="container mt-4">
+    <h2>📊 CFO Executive Report</h2>
+
+    @if (!Model.IsAuthorized)
+    {
+        <div class="alert alert-warning">
+            <strong>Access Restricted.</strong>
+            @Model.UnauthorizedTooltip
+        </div>
+    }
+    else
+    {
+        <p class="text-muted">
+            Generate the one-click CFO Executive Report with fleet utilization summary,
+            buy vs. rent recommendations, and budget waste analysis.
+        </p>
+        <a asp-action="GenerateReport" class="btn btn-primary" target="_blank">
+            📄 Generate &amp; Export CFO Report
+        </a>
+    }
+</div>

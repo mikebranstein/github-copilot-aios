@@ -10,4 +10,26 @@ public class ApplicationUser
     public string? PushP256dh { get; set; }
     public string? PushAuth { get; set; }
     public bool NotificationsEnabled { get; set; } = true;
+
+    // Added for Issue #122 — Role-based access for utilization analytics
+    /// <summary>
+    /// Fine-grained role controlling access to analytics features.
+    /// Admin and CFO roles can export the CFO Executive Report.
+    /// FleetManager and OperationsDirector can view the utilization dashboard.
+    /// </summary>
+    public UserRole Role { get; set; } = UserRole.Standard;
+
+    /// <summary>
+    /// Returns true if this user may export the CFO Executive Report.
+    /// </summary>
+    public bool CanExportCfoReport => Role == UserRole.CFO || Role == UserRole.Admin;
+
+    /// <summary>
+    /// Returns true if this user may view the utilization dashboard.
+    /// </summary>
+    public bool CanViewUtilizationDashboard =>
+        Role == UserRole.FleetManager ||
+        Role == UserRole.OperationsDirector ||
+        Role == UserRole.CFO ||
+        Role == UserRole.Admin;
 }

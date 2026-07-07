@@ -1,0 +1,81 @@
+@model EquipmentTracker.Web.ViewModels.BuyRentDashboardViewModel
+@using EquipmentTracker.Web.Models
+
+@{
+    ViewData["Title"] = "Buy vs. Rent Recommendations";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>💡 Buy vs. Rent Recommendations</h2>
+        <a asp-controller="BuyRent" asp-action="AddRentalCost" class="btn btn-outline-primary">
+            + Add Rental Cost Entry
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string msg)
+    {
+        <div class="alert alert-success">@msg</div>
+    }
+
+    <p class="text-muted small">
+        Break-even threshold: @(Model.BreakEvenThreshold.ToString("P0")) utilization.
+        Data source: Manual entry (automated ingestion available in a future update).
+    </p>
+
+    @if (!Model.ActionableRecommendations.Any() && !Model.InsufficientDataItems.Any())
+    {
+        <div class="alert alert-info">
+            No assets tracked yet. Add equipment and rental cost data to receive recommendations.
+        </div>
+    }
+    else
+    {
+        @if (Model.ActionableRecommendations.Any())
+        {
+            <h5>Recommendations</h5>
+            @foreach (var rec in Model.ActionableRecommendations)
+            {
+                var cardClass = rec.Outcome == RecommendationOutcome.Buy
+                    ? "border-success" : "border-secondary";
+                var icon = rec.Outcome == RecommendationOutcome.Buy ? "🟢 Buy" : "⚪ Continue Renting";
+                <div class="card @cardClass mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">@rec.AssetCategory — @icon</h5>
+                        <p class="card-text">
+                            You have spent <strong>$@rec.RentalCostYtd.ToString("N0")</strong> renting
+                            <em>@rec.AssetCategory</em> this year. At
+                            <strong>@rec.UtilizationRate.ToString("P0")</strong> utilization,
+                            break-even to own is
+                            <strong>@(rec.BreakEvenMonths.HasValue ? $"{rec.BreakEvenMonths:F0} months" : "N/A")</strong>.
+                        </p>
+                        <p class="card-text text-muted small">
+                            Data source: @rec.DataSource
+                            | Data days available: @rec.DataDaysAvailable
+                            | Threshold used: @rec.ThresholdUsed.ToString("P0")
+                        </p>
+                    </div>
+                </div>
+            }
+        }
+
+        @if (Model.InsufficientDataItems.Any())
+        {
+            <h5 class="mt-4">Pending — More Data Needed</h5>
+            @foreach (var item in Model.InsufficientDataItems)
+            {
+                <div class="card border-light mb-2">
+                    <div class="card-body text-muted">
+                        <strong>@item.AssetCategory</strong> —
+                        More data needed — recommendation available after 90 days of tracked usage.
+                        (@item.DataDaysAvailable days of data available so far.)
+                    </div>
+                </div>
+            }
+        }
+    }
+
+    <a asp-controller="UtilizationDashboard" asp-action="Index" class="btn btn-outline-secondary mt-3">
+        ← Back to Fleet Dashboard
+    </a>
+</div>

@@ -37,6 +37,13 @@ builder.Services.AddSingleton<IPhotoSyncService, PhotoSyncService>();
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 
+// Utilization analytics, buy/rent recommendation, and CFO report (Issue #122)
+builder.Services.AddSingleton<IUtilizationService, UtilizationService>();
+builder.Services.AddSingleton<IRentalCostService, RentalCostService>();
+builder.Services.AddSingleton<IBuyRentRecommendationService, BuyRentRecommendationService>();
+builder.Services.AddSingleton<ICfoReportService, CfoReportService>();
+
+
 // Cookie authentication with 7-day sliding session
 var sessionExpiryDays = builder.Configuration.GetValue<int>("Auth:SessionExpiryDays", 7);
 if (sessionExpiryDays <= 0) sessionExpiryDays = 7;
