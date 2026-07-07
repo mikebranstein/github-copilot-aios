@@ -15,4 +15,8 @@ public class CheckoutRecord
     public string? ReturnConditionNote { get; set; }
     public int? BulkCheckoutInitiatorId { get; set; }
     public bool IsVoided { get; set; } = false;
+
+    // Added for Issue #41 — Offline-First Mobile Checkout
+    // When syncing an offline transaction, this is set to the timestamp recorded by the device.
+    public DateTime? OfflineTimestamp { get; set; }
 }
