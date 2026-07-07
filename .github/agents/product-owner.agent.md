@@ -65,7 +65,7 @@ Decision: CHAMPION (strong market signal)
 "Mobile unblocks immediate revenue. Integrations can wait 2 sprints."
 
 [PO creates feature-request #89]
-Title: Mobile app: iOS/Android checkout for field teams
+Title: [feature-request]: Mobile app: iOS/Android checkout for field teams
 Linked to: strategic-opportunity #42
 User story: As a field manager, I want to check out equipment from my phone
 Value scores: User=5, Business=4, Complexity=4

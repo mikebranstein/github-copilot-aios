@@ -70,7 +70,7 @@ Create a GitHub issue with:
 
 **Example:**
 ```
-Title: Mobile app for field teams
+Title: [pm-idea]: Mobile app for field teams
 Body: 4 support tickets this week mentioning "can't checkout from field"
 Label: pm-idea
 ```
@@ -105,12 +105,12 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
    - What personas are affected? (Check Wiki for existing personas)
    - What journey stages? (Check Wiki for related journey maps)
    - What competitive research exists? (Check Research-to-Decision Index)
-   - **For each missing research item**, create a `research:` work item with REQUIRED labels:
+   - **For each missing research item**, create a `research` work item with REQUIRED labels:
      ```bash
      gh issue create \
        --label "research:" \
        --label "pm-idea-$PM_IDEA_NUMBER" \
-       --title "research: [Persona Name] for [Idea Title]" \
+       --title "[research]: [Persona Name] for [Idea Title]" \
        --body "# Research Work Item
    
    Conduct 5+ customer interviews with [Persona Name] to understand:
@@ -340,7 +340,7 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
      --label "research:" \
      --label "follow-on-research" \
      --label "pm-idea-$PM_IDEA_NUMBER" \
-     --title "research: Follow-On Critical Validation for #$PM_IDEA_NUMBER" \
+     --title "[research-follow-on]: Critical Validation for #$PM_IDEA_NUMBER" \
      --body "# Follow-On Research - Critical Validation\n\n$CRITICAL_TEXT\n\nLinked to: #$PM_IDEA_NUMBER (initial research: #$FIRST_RESEARCH_ISSUE)\n\nThis is Round 2 research. Only 1 follow-on round is allowed.")
    
    # REMOVE pm-finalizing so orchestrator knows Phase 2 is paused (not crashed)

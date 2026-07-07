@@ -607,7 +607,7 @@ Every research finding must convert to a **decision-ready statement**:
 ### Input: Research Work Item
 GitHub issue with:
 - **Label:** `research:`, `pm-work`
-- **Title:** "Research: [Research Objective] for [Opportunity]"
+- **Title:** "[research]: [Research Objective] for [Opportunity]"
 - **Body:** Research scoping with:
   - Key research questions (not just persona)
   - Existing data available (support tickets, case studies)

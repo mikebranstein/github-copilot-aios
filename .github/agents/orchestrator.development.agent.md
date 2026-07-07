@@ -1,5 +1,5 @@
 ---
-description: "Orchestrator Development: Independent pipeline loop for execution (Intake through Release). Runs continuously, pulls from PM-PO prioritized backlog. Never waits for product leadership decisions. 8-stage pipeline with policy-based gating."
+description: "Orchestrator Development: Independent pipeline loop for execution (Intake through Release). Runs continuously, pulls from PM-PO prioritized backlog. Never waits for product leadership decisions. 8-stage pipeline with policy-based gating. Includes manual intervention procedures for policy escalations and blocks."
 tools: ["*"]
 ---
 
@@ -8,9 +8,32 @@ You are the orchestrator for the **development execution pipeline**. Your job is
 1. **Pulls** next-priority issues from the PM-PO prioritized backlog
 2. **Routes** features through the 8-stage development pipeline
 3. **Never waits** for PM-PO decisions
-4. **Ships** finished features to production
+4. **Manages** automatic label cleanup and stage transitions
+5. **Surfaces** manual decision points at the Policy gate with clear unblocking procedures
 
 This loop runs **independently** and concurrently with the PM-PO orchestrator. Development never blocks on PM-PO; PM-PO never blocks development.
+
+---
+
+## ⚠️ Critical: Manual Intervention Points
+
+**ONLY 2 places where HUMAN decision is required:**
+
+### 1. Policy ESCALATED (Some Risk - Needs Leadership Approval)
+- **Where:** Policy Review column
+- **Labels:** `policy-escalated` + `po-prioritized`
+- **Who Decides:** Director+ Engineering Leadership
+- **How to Unblock:** Post comment: `@dev-orchestrator policy-override-approved`
+- **Details:** [See Manual Intervention Procedures section below](#critical-manual-intervention-procedures-at-policy-gate)
+
+### 2. Policy BLOCKED (Critical Issue - Needs Design + PM Acceptance)
+- **Where:** Policy Review column
+- **Labels:** `policy-blocked` + `po-prioritized`
+- **Who Decides:** Design Lead + Product Manager (joint)
+- **How to Unblock:** Post comment: `@dev-orchestrator accept-policy-risk`
+- **Details:** [See Manual Intervention Procedures section below](#critical-manual-intervention-procedures-at-policy-gate)
+
+All other stages are automated. If you see an issue stuck in a stage OTHER than Policy Review, it's a bug—report it.
 
 ---
 
@@ -44,25 +67,79 @@ if [ -z "$READY_ITEMS" ]; then
   exit 0
 fi
 
+# Step 1a: Validate all issues have Priority Score (quality gate)
+MISSING_SCORES=$(gh project item-list 1 --format json | \
+  jq '.items[] | select(.column == "Ready for Development") | .number' | while read ISSUE; do
+  BODY=$(gh issue view "$ISSUE" --json body -q '.body')
+  PRIORITY=$(echo "$BODY" | grep -oP 'Priority Score:\s*\K[0-9.]+' || echo "")
+  if [ -z "$PRIORITY" ]; then
+    echo $ISSUE
+  fi
+done)
+
+if [ -n "$MISSING_SCORES" ]; then
+  for ISSUE in $MISSING_SCORES; do
+    gh issue comment $ISSUE --body "⚠️ ERROR: Missing Priority Score. Cannot determine pull order. PO must add Priority Score (format: 'Priority Score: X.X') before dev orchestrator can proceed."
+  done
+  echo "ERROR: Issues in Ready for Development missing Priority Score. Waiting for PO to fix..." >&2
+  sleep 600
+  exit 1
+fi
+
+# Step 1b: Check for blocked-on dependencies (skip blocked issues)
+BLOCKED_ISSUES=$(gh project item-list 1 --format json | \
+  jq '.items[] | select(.column == "Ready for Development") | .number' | while read ISSUE; do
+  LABELS=$(gh issue view "$ISSUE" --json labels --jq '.labels[].name | select(. == "blocked-on")')
+  if [ -n "$LABELS" ]; then
+    # Find blocking issue from comments
+    BLOCKING=$(gh issue view "$ISSUE" --json comments --jq '.comments[] | 
+      select(.body | contains("blocks:")) | .body' | grep -oP 'blocks:\s*#\K[0-9]+' | head -1)
+    
+    if [ -n "$BLOCKING" ]; then
+      # Check if blocking issue is CLOSED
+      STATUS=$(gh issue view "$BLOCKING" --json state -q '.state')
+      if [ "$STATUS" = "CLOSED" ]; then
+        # Remove blocked-on label; return to queue
+        echo "UNBLOCKED:$ISSUE:$BLOCKING"
+      else
+        # Still blocked
+        echo "BLOCKED:$ISSUE:$BLOCKING"
+      fi
+    fi
+  fi
+done)
+
+# Process unblocked issues
+echo "$BLOCKED_ISSUES" | grep "^UNBLOCKED:" | cut -d: -f2 | while read ISSUE BLOCKING; do
+  gh issue edit "$ISSUE" --remove-label "blocked-on"
+  gh issue comment "$ISSUE" --body "✅ Blocking issue #$BLOCKING resolved. Returning to ready queue."
+done
+
+# Report still-blocked issues
+STILL_BLOCKED=$(echo "$BLOCKED_ISSUES" | grep "^BLOCKED:" | cut -d: -f2)
+if [ -n "$STILL_BLOCKED" ]; then
+  echo "NOTE: Skipping $(echo "$STILL_BLOCKED" | wc -l) issues with active blocked-on dependencies. Will retry next cycle."
+fi
+
 # Step 2: Parse priority score from each issue and sort by highest score first
-NEXT_ISSUE=$(echo "$READY_ITEMS" | while IFS= read -r item; do
-  ISSUE_NUM=$(echo "$item" | jq -r '.number')
+NEXT_ISSUE=$(gh project item-list 1 --format json | \
+  jq '.items[] | select(.column == "Ready for Development") | .number' | while read ISSUE_NUM; do
+  # Skip blocked issues
+  if echo "$STILL_BLOCKED" | grep -q "^$ISSUE_NUM$"; then
+    continue
+  fi
+  
   ISSUE_BODY=$(gh issue view "$ISSUE_NUM" --json body -q '.body')
   
   # Extract priority score from issue body (format: "Priority Score: 2.1")
-  PRIORITY=$(echo "$ISSUE_BODY" | grep -oP 'Priority Score:\s*\K[0-9.]+' || echo "")
+  PRIORITY=$(echo "$ISSUE_BODY" | grep -oP 'Priority Score:\s*\K[0-9.]+' || echo "0")
   
-  if [ -z "$PRIORITY" ]; then
-    echo "ERROR: Issue #$ISSUE_NUM in Ready for Development missing Priority Score. Skipping." >&2
-    echo "0 $ISSUE_NUM"  # Assign 0 so it sorts to end
-  else
-    echo "$PRIORITY $ISSUE_NUM"
-  fi
+  echo "$PRIORITY $ISSUE_NUM"
 done | sort -rn | head -1 | cut -d' ' -f2)
 
-if [ -z "$NEXT_ISSUE" ] || [ "$NEXT_ISSUE" = "0" ]; then
-  echo "ERROR: All issues in Ready for Development are missing Priority Score. Orchestrator cannot determine pull order." >&2
-  echo "ACTION REQUIRED: PO must add Priority Score to all issues before orchestrator can proceed." >&2
+if [ -z "$NEXT_ISSUE" ]; then
+  echo "No unblocked issues in Ready for Development. All issues either blocked or missing priority score." >&2
+  sleep 300
   exit 1
 fi
 
@@ -72,11 +149,11 @@ INTAKE_AGENT process "$NEXT_ISSUE"
 
 **Why**: 
 - Pulls `feature-request` issues from PM-PO backlog (already researched, prioritized, linked to strategic-opportunity)
-- **Parses priority score from each issue** and sorts by highest score first (descending order)
-- Validates that priority score exists; errors if missing
-- No re-negotiation; issue stays in development until complete
-- If backlog is empty, development waits (normal state; PM-PO will add more)
-- **Deterministic ordering:** Same run always pulls the same highest-priority issue
+- **Step 1a - Priority Score Validation:** Validates that every issue in "Ready for Development" has a Priority Score; alerts PO if missing
+- **Step 1b - Dependency Resolution:** Checks each issue's blocked-on dependencies; removes label if blocking issue is CLOSED; skips still-blocked issues
+- Sorts by highest priority score first (descending order)
+- Deterministic ordering: Same run always pulls the same highest-priority unblocked issue
+- If backlog is empty or all blocked, development waits (normal state)
 
 **What happens**:
 1. Issue (type `feature-request`) is moved from "Ready for Development" to "In Development"
@@ -376,6 +453,153 @@ Example:
 - "This change affects 3+ systems and has breaking API changes. Needs director approval."
 - "Compliance implications require legal sign-off"
 
+---
+
+## ⚠️ CRITICAL: Manual Intervention Procedures at Policy Gate
+
+### **Case 1: Policy ESCALATED → Leadership Override**
+
+**Situation:** Policy Agent found ESCALATE criteria (some risk, but not critical). Needs leadership judgment.
+
+**Who Can Unblock:** Director+ Engineering Leadership
+
+**How to Unblock:**
+
+1. Review the policy comment on the issue (lists escalation reason)
+2. Make your decision: Approve? Reject? Conditional?
+3. **Post this comment** (format REQUIRED for bot detection):
+   ```
+   @dev-orchestrator policy-override-approved
+   
+   Risk Assessment: [Your reasoning]
+   Conditions: [Any conditions, e.g., "Monitor for regressions; alert if error rate >1%"]
+   Approved by: [Your Name, Title]
+   Date: [ISO 8601]
+   ```
+4. Orchestrator automatically:
+   - Removes `policy-escalated` label
+   - Adds `policy-approved-override` label
+   - Moves issue to "Ready to Release"
+   - Release agent deploys
+
+**Audit Trail:** Your override comment is permanently on issue
+
+---
+
+### **Case 2: Policy BLOCKED → Design Must Accept Risk**
+
+**Situation:** Policy Agent found BLOCK criteria (critical issue). Cannot override lightly—requires Design + PM joint approval with documented mitigation.
+
+**Who Can Unblock:** Design Lead + Product Manager (together)
+
+**How to Unblock:**
+
+1. Review the policy comment (lists block reason)
+2. Discuss: Is this legitimate? Should we deprioritize instead?
+3. **If accepting risk, post this comment** (format REQUIRED):
+   ```
+   @dev-orchestrator accept-policy-risk
+   
+   Blocked By: [Which criterion, e.g., "Zero test coverage"]
+   Why Override: [Your reasoning]
+   Mitigation Plan: [How we'll fix this]
+   Mitigation Deadline: [By when]
+   Mitigation Owner: [Who's responsible]
+   Approved by: [Design Lead], [Product Manager]
+   Date: [ISO 8601]
+   ```
+4. Orchestrator automatically:
+   - Removes `policy-blocked` label
+   - Adds `policy-risk-accepted` label
+   - **Creates follow-up issue:** "[Feature] Mitigation: [detail]" due by [date]
+   - Moves issue to "Ready to Release"
+   - Release agent deploys
+
+**Audit Trail:** Override comment + follow-up issue ensure risk is tracked and addressed by deadline
+
+---
+
+## Label Hygiene: Atomic State Transitions at Every Boundary
+
+**Golden Rule:** Remove old label + add new label in SAME command. Never leave stage labels dangling.
+
+```bash
+# Example: Intake → BA
+gh issue edit $ISSUE_NUM --remove-label "intake-working" --add-label "ba-working"
+
+# Example: BA → Design (low-risk)
+gh issue edit $ISSUE_NUM --remove-label "ba-working" --add-label "design-working"
+
+# Example: Design → Build
+gh issue edit $ISSUE_NUM --remove-label "design-working" --add-label "build-working"
+
+# Example: Build → Verification
+gh issue edit $ISSUE_NUM --remove-label "build-working" --add-label "verification-working"
+
+# Example: Verification → QA
+gh issue edit $ISSUE_NUM --remove-label "verification-working" --add-label "qa-working"
+
+# Example: QA Pass → Release (low-risk)
+gh issue edit $ISSUE_NUM --remove-label "qa-working" --remove-label "po-prioritized" --add-label "qa-passed"
+
+# Example: Policy Override Approved → Release
+gh issue edit $ISSUE_NUM --remove-label "policy-escalated" --add-label "policy-approved-override" --remove-label "qa-passed"
+
+# Example: Release Complete → Closed
+gh issue edit $ISSUE_NUM --remove-label "po-prioritized" --add-label "released"
+gh issue close $ISSUE_NUM --reason "completed"
+```
+
+---
+
+## Escalation Comment Templates
+
+### When Intake → BA (Ambiguous Requirements)
+
+```
+@ba-agent requirements-clarification-needed
+
+**Issue:** [Describe ambiguity]
+**Questions for Product:**
+- [Q1]
+- [Q2]
+
+**Blocker Since:** [Time]
+```
+
+### When BA → Design (Non-Testable ACs)
+
+```
+@design-agent acceptance-criteria-not-testable
+
+**Criterion:** [AC #X]
+**Current:** "[Vague text]"
+**Issue:** Not testable. 
+
+**Suggested Fix:** 
+Given [condition], When [action], Then [outcome]
+
+**Blocker Since:** [Time]
+```
+
+### When Design → Build (Architectural Blocker)
+
+```
+@build-agent architectural-blocker
+
+**Issue:** [Technical blocker]
+**Why:** [Why current approach fails]
+**Options:**
+A) [Workaround + tradeoffs]
+B) [Alternative approach]
+C) [Reduce scope]
+
+**Recommendation:** [Your pick]
+**Blocker Since:** [Time]
+```
+
+---
+
 ### Development escalates to PO
 
 **When:** Backlog priority needs adjustment
@@ -392,14 +616,47 @@ Example:
 
 ### Labels Used in Development Loop
 
-- `development` — Feature in active development
-- `policy-review-required` — Flagged by Design; requires policy gate
-- `test-coverage-incomplete` — QA found untested ACs; route to Design
-- `qa-passed` — QA validated; ready for policy or release
-- `policy-approved` — Policy gate approved; ready to release
-- `policy-escalated` — Policy gate escalated; awaiting leadership
-- `policy-blocked` — Policy gate blocked; route to Design
-- `released` — Shipped to production; issue closed
+**Stage Labels (indicate WHERE issue currently is):**
+- `intake-working` — Issue in Intake stage
+- `ba-working` — Issue in BA stage
+- `design-working` — Issue in Design stage
+- `build-working` — Issue in Build stage
+- `verification-working` — Issue in Verification stage
+- `qa-working` — Issue in QA stage
+
+**Decision/Gate Labels (indicate OUTCOME of a stage):**
+- `po-prioritized` — Added by PO; removed when issue ships (final marker)
+- `policy-review-required` — Flagged by Design; route to Policy Agent after QA
+- `qa-passed` — Added by QA when all tests pass; used for routing to Policy or Release
+- `test-coverage-incomplete` — Added when QA finds untested ACs; route back to Design
+
+**Policy Gate Labels (MUTUALLY EXCLUSIVE - pick one):**
+- `policy-approved` — Auto-set by Policy Agent; ready to Release
+- `policy-approved-override` — Added by leadership override; safe to Release
+- `policy-risk-accepted` — Added by Design + PM override; safe to Release (with follow-up)
+- `policy-escalated` — Added by Policy Agent; awaiting leadership override
+- `policy-blocked` — Added by Policy Agent; requires Design + PM risk acceptance
+
+**Final Labels:**
+- `released` — Issue shipped to production; issue is CLOSED
+
+**Routing Logic at QA:**
+```
+IF (qa-working AND all-tests-pass) THEN
+  - Remove "qa-working"
+  - Add "qa-passed"
+  - IF (policy-review-required label exists) THEN
+    - Move to "Policy Review" column
+    - Route to Policy Agent
+  - ELSE
+    - Move to "Ready to Release" column
+    - Route to Release Agent (auto-merge to main, low-risk)
+ELSE
+  - Keep "qa-working"
+  - Route back to Build
+  - Add comment explaining failures
+END
+```
 
 ### GitHub Projects Board (Development Focus)
 
@@ -408,11 +665,72 @@ Columns:
 1. Ready for Development (items pulled from PM-PO backlog)
 2. In Development (active work; Intake through QA)
 3. Policy Review (if flagged by Design)
-4. Released (shipped; closed)
-5. Blocked (waiting for dependency or escalation decision)
+4. Ready to Release (approved by Policy or QA; low-risk)
+5. Released (shipped; closed)
+6. Blocked (waiting for escalation decision or dependency)
 ```
 
 ---
+
+## Complete Routing Summary with Label Transitions
+
+```
+START: "Ready for Development" with [po-prioritized] label
+  ↓
+Intake:
+  PASS  → Remove [intake-working], Add [ba-working], Move to "In Development"
+  FAIL  → Escalate with comment template
+  
+BA (Requirements Refinement):
+  PASS  → Remove [ba-working], Add [design-working], Move to "In Development"
+  FAIL  → Escalate to Intake with comment template
+  
+Design (Architecture):
+  PASS (Low-Risk)  → Remove [design-working], Add [build-working], Move to "In Development"
+  PASS (High-Risk) → Remove [design-working], Add [build-working, policy-review-required], Move to "In Development"
+  FAIL → Escalate to BA with comment template
+  
+Build (Implementation + Tests):
+  PASS  → Remove [build-working], Add [verification-working], Move to "In Development"
+  FAIL  → Escalate with comment template
+  
+Verification (Code Quality):
+  PASS  → Remove [verification-working], Add [qa-working], Move to "In Development"
+  FAIL  → Return to Build with comment
+  
+QA (Test Coverage + Validation):
+  PASS + [policy-review-required] → Remove [qa-working], Add [qa-passed], Move to "Policy Review" → Route to Policy Agent
+  PASS + NO policy flag → Remove [qa-working], Remove [po-prioritized], Add [qa-passed], Move to "Ready to Release" → Route to Release Agent
+  FAIL (incomplete coverage) → Return to Design with [test-coverage-incomplete]
+  FAIL (tests fail) → Return to Build with comment
+  
+Policy Agent (Governance Review):
+  APPROVE → Remove [policy-escalated], Add [policy-approved], Move to "Ready to Release"
+  ESCALATE → Add [policy-escalated], Hold in "Policy Review"
+    → LEADERSHIP OVERRIDE: Remove [policy-escalated], Add [policy-approved-override], Move to "Ready to Release"
+  BLOCK → Add [policy-blocked], Hold in "Policy Review"
+    → DESIGN ACCEPTS RISK: Remove [policy-blocked], Add [policy-risk-accepted], Move to "Ready to Release"
+  
+Release Agent (Deploy):
+  SUCCESS → Remove all labels [qa-passed, policy-approved-override, policy-risk-accepted], Add [released], Close Issue
+  FAILURE → Rollback & return to Build with incident details
+```
+
+---
+
+## Escalation at Policy Gate: Reference Quick Guide
+
+| Scenario | Your Action | Comment Format | Result |
+|---|---|---|---|
+| Policy ESCALATED (some risk) | Leadership reviews then approves | `@dev-orchestrator policy-override-approved \n Risk Assessment: ... \n Approved by: ...` | Issue moves to Release |
+| Policy ESCALATED (some risk) | Leadership reviews then rejects | Close feature request; deprioritize | Issue returned to backlog |
+| Policy BLOCKED (critical issue) | Design + PM accept risk + mitigation | `@dev-orchestrator accept-policy-risk \n Blocked By: ... \n Mitigation Plan: ... \n Approved by: ...` | Issue moves to Release + follow-up created |
+| Policy BLOCKED (critical issue) | Design decides to re-work | Return to Design stage; restart | Issue remains in development |
+| Policy BLOCKED (critical issue) | PO deprioritizes | Close feature request | Issue removed from pipeline |
+
+---
+
+
 
 ## Timing: How Long Does Development Take?
 

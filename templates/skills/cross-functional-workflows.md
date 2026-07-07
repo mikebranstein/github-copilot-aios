@@ -17,7 +17,7 @@ Clear workflows with each function (Design, BA, Eng, QA, Marketing) prevent hand
 
 **Example Issue:**
 ```
-Title: Strategic Opportunity - Mobile App for Field Teams
+Title: [strategic-opportunity]: Mobile App for Field Teams
 
 Research Summary:
 - 12 support tickets from field teams ("can't check out from phone")
@@ -57,7 +57,7 @@ Rough Effort: 10 weeks (backend API + iOS + Android)
 Once accepted, PO converts strategic-opportunity into tactical feature-request:
 
 ```
-Title: Mobile App - MVP: iOS Checkout for Field Teams
+Title: [feature-request]: Mobile App - MVP: iOS Checkout for Field Teams
 
 Linked to: strategic-opportunity #[X]
 
@@ -96,7 +96,7 @@ Success Metrics:
 ### PO Provides (High-Level)
 
 ```
-Feature: Mobile App - iOS Checkout
+[feature-request]: Mobile App - iOS Checkout
 
 User Story: As a field manager, I want to checkout equipment from my iPhone so I can avoid office trip.
 
@@ -228,7 +228,7 @@ Otherwise looks good.
 ### PO Articulates the Problem
 
 ```
-Feature: Mobile Checkout
+[feature-request]: Mobile Checkout
 
 Problem: Field teams need to check out equipment from their phone (no office visit).
 Pain point: Currently takes 30 min roundtrip to office + 5 min checkout = 35 min lost per day.
