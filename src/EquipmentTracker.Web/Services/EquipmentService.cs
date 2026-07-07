@@ -106,4 +106,32 @@ public class EquipmentService : IEquipmentService
             .ToList()
             .AsReadOnly();
     }
+
+    public IReadOnlyList<CheckoutHistoryEntry> GetCheckoutHistoryByUser(int userId, int limit = 30)
+    {
+        var itemNameById = _items.ToDictionary(i => i.Id, i => i.Name);
+
+        return _records
+            .Where(r => r.BorrowerUserId == userId)
+            .OrderByDescending(r => r.CheckedOutAtUtc)
+            .Take(limit)
+            .Select(r => new CheckoutHistoryEntry
+            {
+                ItemName        = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
+                HolderName      = r.BorrowerName,
+                CheckedOutAtUtc = r.CheckedOutAtUtc,
+                ReturnedAtUtc   = r.ReturnedAtUtc
+            })
+            .ToList()
+            .AsReadOnly();
+    }
+
+    public bool IsIdempotentCheckout(int itemId, int borrowerUserId)
+    {
+        return _records.Any(r =>
+            r.EquipmentItemId == itemId &&
+            r.BorrowerUserId == borrowerUserId &&
+            r.ReturnedAtUtc is null &&
+            (DateTime.UtcNow - r.CheckedOutAtUtc).TotalSeconds <= 60);
+    }
 }

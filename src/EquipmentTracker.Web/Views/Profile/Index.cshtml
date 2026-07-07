@@ -1,0 +1,83 @@
+@model EquipmentTracker.Web.ViewModels.ProfileViewModel
+@{
+    ViewData["Title"] = "My Profile";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">👤 My Profile</h4>
+
+    <!-- User info card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title mb-1">@Model.Username</h5>
+            @if (Model.IsCoordinator)
+            {
+                <span class="badge bg-primary">Coordinator</span>
+            }
+            else
+            {
+                <span class="badge bg-secondary">Field User</span>
+            }
+        </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="d-flex gap-2 mb-4">
+        <a href="/mobile/checkout/scan" class="btn btn-primary flex-fill" style="min-height:48px;">
+            📦 Check Out
+        </a>
+        <a href="/mobile/return/scan" class="btn btn-outline-primary flex-fill" style="min-height:48px;">
+            ↩️ Return
+        </a>
+    </div>
+
+    <!-- Transaction history -->
+    <h5 class="mb-2">Recent Transactions <small class="text-muted fs-6">(last 30)</small></h5>
+
+    @if (!Model.RecentHistory.Any())
+    {
+        <div class="alert alert-light border">
+            No checkout history yet. <a href="/mobile/checkout/scan">Check out your first item →</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item</th>
+                        <th>Checked Out</th>
+                        <th>Returned</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model.RecentHistory)
+                    {
+                        <tr>
+                            <td>@entry.ItemName</td>
+                            <td class="text-nowrap">@entry.CheckedOutAtUtc.ToString("MMM d, yyyy HH:mm")</td>
+                            <td class="text-nowrap">
+                                @(entry.ReturnedAtUtc.HasValue
+                                    ? entry.ReturnedAtUtc.Value.ToString("MMM d, yyyy HH:mm")
+                                    : "—")
+                            </td>
+                            <td>
+                                @if (entry.IsOpen)
+                                {
+                                    <span class="badge bg-warning text-dark">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Returned</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

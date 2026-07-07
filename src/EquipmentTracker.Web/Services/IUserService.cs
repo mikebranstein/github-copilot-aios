@@ -9,6 +9,7 @@ public interface IUserService
     ApplicationUser? GetById(int id);
     bool ValidatePassword(ApplicationUser user, string password);
     IReadOnlyList<ApplicationUser> GetCoordinators();
+    IReadOnlyList<ApplicationUser> GetBorrowers();
     void UpdatePushSubscription(int userId, string? endpoint, string? p256dh, string? auth);
     void SetNotificationsEnabled(int userId, bool enabled);
 }

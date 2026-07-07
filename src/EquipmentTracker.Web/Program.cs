@@ -14,6 +14,9 @@ builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<IPushNotificationService, WebPushService>();
 
+// Coordinator notification service (in-memory, singleton)
+builder.Services.AddSingleton<ICoordinatorNotificationService, CoordinatorNotificationService>();
+
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 

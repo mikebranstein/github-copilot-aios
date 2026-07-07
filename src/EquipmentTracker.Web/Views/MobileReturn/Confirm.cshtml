@@ -1,0 +1,51 @@
+@model EquipmentTracker.Web.ViewModels.MobileReturnConfirmViewModel
+@{
+    ViewData["Title"] = "Confirm Return";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">↩️ Confirm Return</h4>
+
+    <!-- Equipment info card -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">@Model.Item.Name</h5>
+            <p class="card-text text-muted mb-1">Category: @Model.Item.Category</p>
+            @if (Model.ActiveRecord is not null)
+            {
+                <p class="card-text mb-0">
+                    <strong>Current holder:</strong> @Model.ActiveRecord.BorrowerName<br />
+                    <strong>Checked out:</strong> @Model.ActiveRecord.CheckedOutAtUtc.ToString("g") UTC
+                </p>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-warning" role="alert">
+            @Model.ErrorMessage
+        </div>
+        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100">← Back to scan</a>
+    }
+    else if (Model.Item.IsAvailable)
+    {
+        <div class="alert alert-info">This item is already available — nothing to return.</div>
+        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100">← Back to scan</a>
+    }
+    else
+    {
+        <!-- Return confirmation form (single tap) -->
+        <form method="post" action="/mobile/return/confirm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="itemId" value="@Model.Item.Id" />
+            <button type="submit" class="btn btn-success btn-lg w-100 mb-2" style="min-height:56px;">
+                ✅ Confirm Return
+            </button>
+        </form>
+        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100" style="min-height:48px;">
+            ← Back to scan
+        </a>
+    }
+</div>

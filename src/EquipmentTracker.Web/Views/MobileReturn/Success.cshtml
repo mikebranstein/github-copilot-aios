@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Return Confirmed";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-4 text-center">
+    <div class="mb-4" style="font-size:3rem;">↩️</div>
+    <h4 class="mb-2">Return Confirmed!</h4>
+    <p class="text-muted mb-4">@ViewBag.SuccessMessage</p>
+
+    <div class="d-grid gap-2">
+        <a href="/mobile/return/scan" class="btn btn-primary btn-lg" style="min-height:52px;">
+            Return another item
+        </a>
+        <a href="/MobileEquipment/Index" class="btn btn-outline-secondary" style="min-height:48px;">
+            Browse equipment catalog
+        </a>
+        <a href="/profile" class="btn btn-outline-secondary" style="min-height:48px;">
+            View my history
+        </a>
+    </div>
+</div>

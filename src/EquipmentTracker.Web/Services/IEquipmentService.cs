@@ -31,4 +31,16 @@ public interface IEquipmentService
     /// Each entry includes the resolved item name.
     /// </summary>
     IReadOnlyList<CheckoutHistoryEntry> GetAllCheckoutHistory();
+
+    /// <summary>
+    /// Returns checkout history for the specified user (by BorrowerUserId), newest-first.
+    /// Returns up to the requested limit (default 30). Returns an empty list if user has no history.
+    /// </summary>
+    IReadOnlyList<CheckoutHistoryEntry> GetCheckoutHistoryByUser(int userId, int limit = 30);
+
+    /// <summary>
+    /// Returns true if a non-returned checkout for the same (BorrowerUserId, EquipmentItemId)
+    /// pair was created within the last 60 seconds. Used for server-side idempotency.
+    /// </summary>
+    bool IsIdempotentCheckout(int itemId, int borrowerUserId);
 }

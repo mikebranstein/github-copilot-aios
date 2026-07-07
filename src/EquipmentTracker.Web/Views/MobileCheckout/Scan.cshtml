@@ -1,0 +1,186 @@
+@{
+    ViewData["Title"] = "Scan Equipment";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">📷 Scan Equipment QR Code</h4>
+
+    <!-- Error / network error banner -->
+    <div id="error-banner" class="alert alert-danger d-none" role="alert">
+        <span id="error-message">Checkout failed. <a href="#" onclick="retryLastAction(); return false;">Tap to retry.</a></span>
+    </div>
+
+    <!-- Camera scanning area -->
+    <div id="scan-area" class="mb-3">
+        <div class="ratio" style="--bs-aspect-ratio: 75%; background:#000; border-radius:8px; overflow:hidden;">
+            <video id="camera-video" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+            <canvas id="scan-canvas" style="display:none;"></canvas>
+        </div>
+        <p class="text-muted small mt-1 text-center">Point camera at QR code or barcode on equipment label.</p>
+        <div id="scan-timeout-msg" class="alert alert-info d-none mt-2" role="alert">
+            Can't scan? <strong>Search by name</strong> below.
+        </div>
+    </div>
+
+    <!-- Text search fallback (always visible after timeout; also shown immediately) -->
+    <div id="text-search-area" class="mb-3">
+        <label for="search-input" class="form-label fw-semibold">Search by name</label>
+        <div class="input-group">
+            <input type="text" id="search-input" class="form-control" placeholder="e.g. Laptop, Projector..."
+                   style="min-height:48px; font-size:1.1rem;" autocomplete="off" />
+            <button class="btn btn-primary" type="button" onclick="searchByName()" style="min-width:80px;">Search</button>
+        </div>
+    </div>
+
+    <!-- Search results -->
+    <div id="search-results" class="list-group mb-3"></div>
+</div>
+
+@section Scripts {
+<script src="~/lib/jsqr/jsqr.min.js"></script>
+<script>
+    const SCAN_TIMEOUT_MS = 5000;
+    const FLOW = 'checkout'; // 'checkout' or 'return'
+
+    let scanActive = false;
+    let scanTimeoutHandle = null;
+    let videoStream = null;
+
+    async function startCamera() {
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('scan-canvas');
+        const ctx = canvas.getContext('2d');
+
+        try {
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = videoStream;
+            video.play();
+            scanActive = true;
+
+            // Set scan timeout
+            scanTimeoutHandle = setTimeout(() => {
+                if (scanActive) {
+                    scanActive = false;
+                    document.getElementById('scan-timeout-msg').classList.remove('d-none');
+                }
+            }, SCAN_TIMEOUT_MS);
+
+            requestAnimationFrame(scanFrame);
+        } catch (e) {
+            document.getElementById('scan-timeout-msg').classList.remove('d-none');
+            console.warn('Camera unavailable:', e);
+        }
+    }
+
+    function scanFrame() {
+        if (!scanActive) return;
+
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('scan-canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+            if (code && code.data) {
+                scanActive = false;
+                clearTimeout(scanTimeoutHandle);
+                stopCamera();
+                lookupItem(code.data);
+                return;
+            }
+        }
+
+        requestAnimationFrame(scanFrame);
+    }
+
+    function stopCamera() {
+        if (videoStream) {
+            videoStream.getTracks().forEach(t => t.stop());
+            videoStream = null;
+        }
+    }
+
+    async function lookupItem(code) {
+        try {
+            const resp = await fetch(`/mobile/checkout/lookup?code=${encodeURIComponent(code)}`);
+            if (!resp.ok) {
+                showError(`No item found for code: ${code}`);
+                return;
+            }
+            const item = await resp.json();
+            navigateToConfirm(item.id);
+        } catch (e) {
+            showError('Lookup failed. Check your connection and tap to retry.');
+        }
+    }
+
+    async function searchByName() {
+        const query = document.getElementById('search-input').value.trim();
+        if (!query) return;
+
+        const resultsEl = document.getElementById('search-results');
+        resultsEl.innerHTML = '<p class="text-muted">Searching…</p>';
+
+        try {
+            const resp = await fetch(`/mobile/checkout/lookup?code=${encodeURIComponent(query)}`);
+            if (resp.status === 404) {
+                // Try borrower list style — show all items matching
+                resultsEl.innerHTML = '<p class="text-muted">No item found. Try a different name.</p>';
+                return;
+            }
+            if (!resp.ok) {
+                resultsEl.innerHTML = '<p class="text-danger">Error searching. Try again.</p>';
+                return;
+            }
+            const item = await resp.json();
+            const statusBadge = item.isAvailable
+                ? '<span class="badge bg-success">Available</span>'
+                : '<span class="badge bg-warning text-dark">Checked Out</span>';
+            resultsEl.innerHTML = `
+                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        onclick="navigateToConfirm(${item.id})" style="min-height:56px;">
+                    <span><strong>${escapeHtml(item.name)}</strong><br><small class="text-muted">${escapeHtml(item.category)}</small></span>
+                    ${statusBadge}
+                </button>`;
+        } catch (e) {
+            resultsEl.innerHTML = '<p class="text-danger">Network error. Check connection.</p>';
+        }
+    }
+
+    function navigateToConfirm(itemId) {
+        window.location.href = `/mobile/checkout/confirm?itemId=${itemId}`;
+    }
+
+    function showError(msg) {
+        const banner = document.getElementById('error-banner');
+        document.getElementById('error-message').textContent = msg;
+        banner.classList.remove('d-none');
+    }
+
+    function retryLastAction() {
+        document.getElementById('error-banner').classList.add('d-none');
+        startCamera();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Allow pressing Enter in search box
+    document.getElementById('search-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') searchByName();
+    });
+
+    // Start camera on load
+    document.addEventListener('DOMContentLoaded', startCamera);
+    window.addEventListener('beforeunload', stopCamera);
+</script>
+}

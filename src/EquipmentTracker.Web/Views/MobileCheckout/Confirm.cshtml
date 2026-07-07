@@ -1,0 +1,137 @@
+@model EquipmentTracker.Web.ViewModels.MobileCheckoutConfirmViewModel
+@using System.Security.Claims
+@{
+    ViewData["Title"] = "Confirm Checkout";
+    Layout = "_Layout";
+    var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+    var currentUsername = User.FindFirstValue(ClaimTypes.Name) ?? "me";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">✅ Confirm Checkout</h4>
+
+    <!-- Equipment info card -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">@Model.Item.Name</h5>
+            <p class="card-text text-muted mb-1">Category: @Model.Item.Category</p>
+            @if (Model.Item.IsAvailable)
+            {
+                <span class="badge bg-success">Available</span>
+            }
+            else
+            {
+                <span class="badge bg-warning text-dark">Checked Out</span>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @Model.ErrorMessage
+            <br /><a href="/mobile/checkout/scan" class="alert-link">← Back to scan</a>
+        </div>
+    }
+
+    @if (Model.Item.IsAvailable)
+    {
+        <!-- Assignment selection -->
+        <div class="mb-3">
+            <label class="form-label fw-semibold">Assign to:</label>
+
+            <!-- Assign to self (1-tap option) -->
+            <form method="post" action="/mobile/checkout/confirm" id="self-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="itemId" value="@Model.Item.Id" />
+                <input type="hidden" name="assigneeId" value="@currentUserId" />
+                <input type="hidden" name="assigneeName" value="@currentUsername" />
+                <button type="submit" class="btn btn-primary btn-lg w-100 mb-2" style="min-height:56px;">
+                    👤 Assign to myself (@currentUsername)
+                </button>
+            </form>
+
+            <!-- Or search for a crew member -->
+            <div class="mt-2">
+                <label for="crew-search" class="form-label text-muted small">Or assign to a crew member:</label>
+                <input type="text" id="crew-search" class="form-control mb-2"
+                       placeholder="Search crew members..." autocomplete="off"
+                       style="min-height:48px;" oninput="searchCrew(this.value)" />
+                <div id="crew-results" class="list-group"></div>
+            </div>
+        </div>
+
+        <!-- Hidden form for crew assignment (populated by JS) -->
+        <form method="post" action="/mobile/checkout/confirm" id="crew-form" class="d-none">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="itemId" value="@Model.Item.Id" id="crew-item-id" />
+            <input type="hidden" name="assigneeId" id="crew-assignee-id" />
+            <input type="hidden" name="assigneeName" id="crew-assignee-name" />
+        </form>
+    }
+    else
+    {
+        <div class="d-flex gap-2 mt-3">
+            <a href="/mobile/checkout/scan" class="btn btn-outline-secondary flex-fill">← Back</a>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+    let crewSearchTimeout = null;
+
+    function searchCrew(term) {
+        clearTimeout(crewSearchTimeout);
+        const resultsEl = document.getElementById('crew-results');
+
+        if (!term || term.length < 1) {
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        crewSearchTimeout = setTimeout(async () => {
+            try {
+                const resp = await fetch(`/api/users/borrowers?search=${encodeURIComponent(term)}`);
+                const users = await resp.json();
+                if (!users.length) {
+                    resultsEl.innerHTML = '<p class="text-muted small px-2">No crew members found.</p>';
+                    return;
+                }
+                resultsEl.innerHTML = users.map(u => `
+                    <button type="button"
+                            class="list-group-item list-group-item-action"
+                            style="min-height:52px;"
+                            onclick="selectCrew(${u.id}, '${escapeAttr(u.username)}')">
+                        ${escapeHtml(u.username)}
+                    </button>`).join('');
+            } catch (e) {
+                resultsEl.innerHTML = '<p class="text-danger small px-2">Error loading crew.</p>';
+            }
+        }, 300);
+    }
+
+    function selectCrew(userId, username) {
+        document.getElementById('crew-assignee-id').value = userId;
+        document.getElementById('crew-assignee-name').value = username;
+        document.getElementById('crew-results').innerHTML = `
+            <div class="alert alert-info py-2">
+                Selected: <strong>${escapeHtml(username)}</strong>
+                <button type="button" class="btn btn-sm btn-primary ms-3" onclick="document.getElementById('crew-form').submit()">
+                    ✅ Confirm checkout to ${escapeHtml(username)}
+                </button>
+            </div>`;
+        document.getElementById('crew-search').value = username;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function escapeAttr(text) {
+        return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+</script>
+}
