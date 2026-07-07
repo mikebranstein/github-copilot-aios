@@ -39,6 +39,9 @@ public class UserService : IUserService
     public IReadOnlyList<ApplicationUser> GetCoordinators() =>
         _users.Where(u => u.IsCoordinator).ToList().AsReadOnly();
 
+    public IReadOnlyList<ApplicationUser> GetBorrowers() =>
+        _users.Where(u => !u.IsCoordinator).ToList().AsReadOnly();
+
     public void UpdatePushSubscription(int userId, string? endpoint, string? p256dh, string? auth)
     {
         var user = GetById(userId);
