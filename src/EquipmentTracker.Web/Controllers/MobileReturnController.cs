@@ -56,7 +56,15 @@ public class MobileReturnController : Controller
             Item = item,
             ActiveRecord = activeRecord,
             ErrorMessage = error,
-            ConditionCaptureRequired = conditionCaptureRequired
+            ConditionCaptureRequired = conditionCaptureRequired,
+
+            // Fair Witness fields (AC-FW1, AC-FW2) — populated from the checkout record
+            FairWitnessPhotoUrl = activeRecord?.ConditionPhotoAtCheckout,
+            FairWitnessTimestamp = activeRecord?.CheckedOutAtUtc,
+            FairWitnessItemName = item.Name,
+
+            // Return photo button always enabled before return confirmed (AC-R1)
+            IsCaptureReturnPhotoButtonEnabled = true
         };
 
         return View(vm);
@@ -155,5 +163,39 @@ public class MobileReturnController : Controller
         ViewBag.SuccessMessage = TempData["SuccessMessage"] as string
             ?? $"Return confirmed for item #{itemId}.";
         return View();
+    }
+
+    // ── Photo capture actions (Issue #58) ─────────────────────────────────────
+
+    // POST /mobile/return/save-return-photo
+    [HttpPost("save-return-photo")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveReturnPhoto(
+        [FromForm] int checkoutRecordId,
+        [FromForm] string? photoData)
+    {
+        var storage = HttpContext.RequestServices.GetService<IPhotoStorageService>();
+
+        if (storage is null)
+            return StatusCode(503, new { error = "Photo storage service unavailable." });
+
+        byte[] photoBytes;
+        if (!string.IsNullOrWhiteSpace(photoData))
+        {
+            var base64 = photoData.Contains(',') ? photoData.Split(',')[1] : photoData;
+            try { photoBytes = Convert.FromBase64String(base64); }
+            catch { photoBytes = Array.Empty<byte>(); }
+        }
+        else
+        {
+            photoBytes = Array.Empty<byte>();
+        }
+
+        var uploaderName = User.FindFirstValue(ClaimTypes.Name) ?? "unknown";
+        var photoUrl = await storage.SavePhotoAsync(photoBytes, uploaderName);
+
+        await storage.AttachToCheckoutRecordAsync(checkoutRecordId, photoUrl, isReturn: true);
+
+        return Json(new { success = true, photoUrl });
     }
 }

@@ -19,4 +19,12 @@ public class CheckoutRecord
     // Added for Issue #41 — Offline-First Mobile Checkout
     // When syncing an offline transaction, this is set to the timestamp recorded by the device.
     public DateTime? OfflineTimestamp { get; set; }
+
+    // Added for Issue #58 — Photo-Backed Checkout & Return
+    public string? ConditionPhotoAtCheckout { get; set; }  // URL/path to photo
+    public string? ConditionAtCheckout { get; set; }  // text description
+    public bool ConditionPhotoSkippedAtCheckout { get; set; } = false;
+    public string? ConditionPhotoAtReturn { get; set; }  // URL/path to photo
+    public string? ConditionAtReturn { get; set; }  // text description
+    public string? ConditionAssessment { get; set; }  // NoDamage, MinorDamage, SignificantDamage (set by coordinator)
 }

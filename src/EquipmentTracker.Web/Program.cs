@@ -29,6 +29,11 @@ builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 builder.Services.AddSingleton<IWaitlistService, WaitlistService>();
 builder.Services.AddHostedService<QueueConfirmationExpiryJob>();
 
+// Photo-backed checkout & return (Issue #58)
+builder.Services.AddSingleton<ICameraService, MobileCameraService>();
+builder.Services.AddSingleton<IPhotoStorageService, LocalPhotoStorageService>();
+builder.Services.AddSingleton<IPhotoSyncService, PhotoSyncService>();
+
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 

@@ -21,4 +21,8 @@ public class OfflineSyncTransaction
 
     /// <summary>Opaque device identifier (e.g. browser fingerprint or user-agent hash).</summary>
     public string DeviceId { get; set; } = string.Empty;
+
+    // Added for Issue #58
+    public string? PhotoLocalPath { get; set; }  // local file path before sync
+    public string? PhotoUploadKey { get; set; }  // SHA-256 hash for deduplication
 }
