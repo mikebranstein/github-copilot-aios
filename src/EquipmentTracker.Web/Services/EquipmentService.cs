@@ -33,7 +33,7 @@ public class EquipmentService : IEquipmentService
         return item;
     }
 
-    public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null)
+    public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null)
     {
         var item = GetItem(itemId);
         if (item is null || !item.IsAvailable)
@@ -47,13 +47,15 @@ public class EquipmentService : IEquipmentService
             EquipmentItemId = itemId,
             BorrowerName = borrowerName,
             BorrowerUserId = borrowerUserId,
-            CheckedOutAtUtc = DateTime.UtcNow
+            CheckedOutAtUtc = DateTime.UtcNow,
+            ConditionNote = conditionNote,
+            BulkCheckoutInitiatorId = bulkCheckoutInitiatorId
         });
 
         return true;
     }
 
-    public bool Return(int itemId)
+    public bool Return(int itemId, string? returnConditionNote = null)
     {
         var item = GetItem(itemId);
         if (item is null || item.IsAvailable)
@@ -65,7 +67,11 @@ public class EquipmentService : IEquipmentService
             .LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null);
 
         if (record is not null)
+        {
             record.ReturnedAtUtc = DateTime.UtcNow;
+            if (returnConditionNote is not null)
+                record.ReturnConditionNote = returnConditionNote;
+        }
 
         return true;
     }
@@ -134,4 +140,10 @@ public class EquipmentService : IEquipmentService
             r.ReturnedAtUtc is null &&
             (DateTime.UtcNow - r.CheckedOutAtUtc).TotalSeconds <= 60);
     }
+
+    public CheckoutRecord? GetCheckoutRecordById(int recordId) =>
+        _records.FirstOrDefault(r => r.Id == recordId);
+
+    public IReadOnlyList<CheckoutRecord> GetAllRawCheckoutRecords() =>
+        _records.OrderByDescending(r => r.CheckedOutAtUtc).ToList().AsReadOnly();
 }

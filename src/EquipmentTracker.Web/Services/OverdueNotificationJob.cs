@@ -51,6 +51,12 @@ public class OverdueNotificationJob : BackgroundService
         var equipmentService = _serviceProvider.GetRequiredService<IEquipmentService>();
         var userService = _serviceProvider.GetRequiredService<IUserService>();
         var pushService = _serviceProvider.GetRequiredService<IPushNotificationService>();
+        var approvalService = _serviceProvider.GetRequiredService<IApprovalService>();
+
+        // Auto-approve pending approvals that have expired their timeout
+        var timeoutMinutes = _configuration.GetValue<int>("Approval:AutoApproveTimeoutMinutes", 5);
+        if (timeoutMinutes <= 0) timeoutMinutes = 5;
+        approvalService.AutoApproveExpired(TimeSpan.FromMinutes(timeoutMinutes));
 
         var overdueThresholdDays = _configuration.GetValue<int>("Checkout:OverdueThresholdDays", 7);
         if (overdueThresholdDays <= 0) overdueThresholdDays = 7;

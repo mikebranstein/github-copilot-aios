@@ -7,4 +7,6 @@ public class MobileReturnConfirmViewModel
     public EquipmentItem Item { get; set; } = null!;
     public CheckoutRecord? ActiveRecord { get; set; }
     public string? ErrorMessage { get; set; }
+    /// <summary>When true, the return condition note is required.</summary>
+    public bool ConditionCaptureRequired { get; set; }
 }

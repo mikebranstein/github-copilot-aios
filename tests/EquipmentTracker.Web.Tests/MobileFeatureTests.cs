@@ -238,6 +238,7 @@ public class MobileFeatureTests
         services.AddSingleton(pushSvc);
         services.AddSingleton(userSvc);
         services.AddSingleton(equipSvc);
+        services.AddSingleton<IApprovalService>(sp => new ApprovalService(sp.GetRequiredService<IEquipmentService>()));
         var provider = services.BuildServiceProvider();
 
         var config = new ConfigurationBuilder()
@@ -245,7 +246,8 @@ public class MobileFeatureTests
             {
                 ["Checkout:OverdueThresholdDays"] = "7",
                 ["Notifications:PollingIntervalMinutes"] = "5",
-                ["Notifications:CoordinatorOverdueHours"] = "24"
+                ["Notifications:CoordinatorOverdueHours"] = "24",
+                ["Approval:AutoApproveTimeoutMinutes"] = "5"
             })
             .Build();
 

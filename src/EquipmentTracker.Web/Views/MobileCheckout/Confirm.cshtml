@@ -36,6 +36,14 @@
 
     @if (Model.Item.IsAvailable)
     {
+        <!-- Condition note (optional) -->
+        <div class="mb-3">
+            <label for="conditionNote" class="form-label fw-semibold">Condition Note <span class="text-muted fw-normal">(optional, max 500 chars)</span></label>
+            <textarea id="conditionNote" name="conditionNote" class="form-control" rows="2"
+                      maxlength="500" placeholder="Note any damage or wear before checkout..."></textarea>
+            <div class="form-text text-end" id="conditionNoteCount">0 / 500</div>
+        </div>
+
         <!-- Assignment selection -->
         <div class="mb-3">
             <label class="form-label fw-semibold">Assign to:</label>
@@ -46,6 +54,7 @@
                 <input type="hidden" name="itemId" value="@Model.Item.Id" />
                 <input type="hidden" name="assigneeId" value="@currentUserId" />
                 <input type="hidden" name="assigneeName" value="@currentUsername" />
+                <input type="hidden" name="conditionNote" id="self-condition-note" value="" />
                 <button type="submit" class="btn btn-primary btn-lg w-100 mb-2" style="min-height:56px;">
                     👤 Assign to myself (@currentUsername)
                 </button>
@@ -67,6 +76,7 @@
             <input type="hidden" name="itemId" value="@Model.Item.Id" id="crew-item-id" />
             <input type="hidden" name="assigneeId" id="crew-assignee-id" />
             <input type="hidden" name="assigneeName" id="crew-assignee-name" />
+            <input type="hidden" name="conditionNote" id="crew-condition-note" value="" />
         </form>
     }
     else
@@ -114,6 +124,9 @@
     function selectCrew(userId, username) {
         document.getElementById('crew-assignee-id').value = userId;
         document.getElementById('crew-assignee-name').value = username;
+        // Copy condition note to crew form
+        const note = document.getElementById('conditionNote')?.value ?? '';
+        document.getElementById('crew-condition-note').value = note;
         document.getElementById('crew-results').innerHTML = `
             <div class="alert alert-info py-2">
                 Selected: <strong>${escapeHtml(username)}</strong>
@@ -132,6 +145,21 @@
 
     function escapeAttr(text) {
         return text.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // Self-form: copy condition note before submit
+    document.getElementById('self-form')?.addEventListener('submit', function() {
+        const note = document.getElementById('conditionNote')?.value ?? '';
+        document.getElementById('self-condition-note').value = note;
+    });
+
+    // Condition note counter
+    const cnTextarea = document.getElementById('conditionNote');
+    const cnCounter = document.getElementById('conditionNoteCount');
+    if (cnTextarea && cnCounter) {
+        cnTextarea.addEventListener('input', () => {
+            cnCounter.textContent = `${cnTextarea.value.length} / 500`;
+        });
     }
 </script>
 }
