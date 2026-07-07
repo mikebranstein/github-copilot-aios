@@ -1,0 +1,104 @@
+@model EquipmentTracker.Web.ViewModels.ReservationConflictViewModel
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Scheduling Conflict Detected";
+}
+
+<div class="container">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">⚠️ Scheduling Conflict Detected</h4>
+        <p>
+            <strong>@Model.RequestedEquipmentName</strong> already has a conflicting reservation
+            for the dates you requested.
+            @if (!string.IsNullOrEmpty(Model.RequestedProjectName))
+            {
+                <span>This is for project: <strong>@Model.RequestedProjectName</strong></span>
+            }
+        </p>
+    </div>
+
+    @foreach (var conflict in Model.Conflicts)
+    {
+        <div class="card mb-3 border-danger">
+            <div class="card-header bg-danger text-white">
+                Conflict: @conflict.ConflictingReservation.ProjectName
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Conflicting Project</dt>
+                    <dd class="col-sm-9">@conflict.ConflictingReservation.ProjectName</dd>
+
+                    <dt class="col-sm-3">Conflicting Dates</dt>
+                    <dd class="col-sm-9">@conflict.ConflictingReservation.StartDate.ToString("MMM d") – @conflict.ConflictingReservation.EndDate.ToString("MMM d, yyyy")</dd>
+
+                    <dt class="col-sm-3">Reserved By</dt>
+                    <dd class="col-sm-9">@conflict.ConflictingReservation.CreatedByUserName</dd>
+                </dl>
+            </div>
+        </div>
+
+        @if (conflict.Alternatives.Any())
+        {
+            <h5>💡 Suggested Alternatives</h5>
+            <div class="row mb-3">
+                @foreach (var alt in conflict.Alternatives)
+                {
+                    <div class="col-md-4 mb-2">
+                        <div class="card h-100 border-success">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    @switch (alt.Type)
+                                    {
+                                        case AlternativeType.SubstituteAsset:
+                                            <span>🔄 Substitute Asset</span>
+                                            break;
+                                        case AlternativeType.AdjustedDateRange:
+                                            <span>📅 Adjusted Dates</span>
+                                            break;
+                                        case AlternativeType.DifferentSite:
+                                            <span>🗺 Different Site</span>
+                                            break;
+                                    }
+                                </h6>
+                                <p class="card-text text-muted small">@alt.Description</p>
+                                @if (alt.SuggestedEquipmentId.HasValue || alt.SuggestedStartDate.HasValue)
+                                {
+                                    <a asp-action="Create"
+                                       asp-route-equipmentId="@(alt.SuggestedEquipmentId ?? Model.OriginalRequest.EquipmentId)"
+                                       asp-route-projectId="@Model.OriginalRequest.ProjectId"
+                                       class="btn btn-sm btn-success">
+                                        Use This Alternative
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-secondary">
+                No alternative suggestions are available for this conflict. You may request an override if you have the authority.
+            </div>
+        }
+    }
+
+    <div class="d-flex gap-2 mt-3">
+        <a asp-action="Create" class="btn btn-outline-primary">← Modify My Request</a>
+        @if (Model.CanOverride)
+        {
+            <form asp-action="Override" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ProjectId" value="@Model.OriginalRequest.ProjectId" />
+                <input type="hidden" name="EquipmentId" value="@Model.OriginalRequest.EquipmentId" />
+                <input type="hidden" name="StartDate" value="@Model.OriginalRequest.StartDate.ToString("yyyy-MM-dd")" />
+                <input type="hidden" name="EndDate" value="@Model.OriginalRequest.EndDate.ToString("yyyy-MM-dd")" />
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Override existing reservation? The displaced party will be notified immediately.');">
+                    ⚡ Override (Ops Manager)
+                </button>
+            </form>
+        }
+    </div>
+</div>

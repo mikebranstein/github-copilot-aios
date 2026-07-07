@@ -1,0 +1,120 @@
+@model EquipmentTracker.Web.ViewModels.CreateReservationViewModel
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "New Reservation";
+}
+
+<div class="container">
+    <h1>New Equipment Reservation</h1>
+    <p class="text-muted">Reserve equipment for a project. Past dates are not allowed. Maximum look-ahead: 90 days.</p>
+
+    <form asp-action="Create" method="post" id="reservationForm">
+        @Html.AntiForgeryToken()
+        <div class="row">
+            <div class="col-md-8">
+
+                <!-- Project selection -->
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">Project</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="ProjectId" class="form-label">Select Existing Project</label>
+                            <select asp-for="ProjectId" class="form-select" id="projectSelect">
+                                <option value="">-- Select Project --</option>
+                                @foreach (var project in Model.AvailableProjects)
+                                {
+                                    <option value="@project.Id">@project.Name (@project.SiteName, @project.StartDate.ToString("MMM d") – @project.EndDate.ToString("MMM d, yyyy"))</option>
+                                }
+                            </select>
+                            <span asp-validation-for="ProjectId" class="text-danger"></span>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="createNewProject" />
+                            <label class="form-check-label" for="createNewProject">Or create a new project</label>
+                        </div>
+                        <div id="newProjectFields" class="border rounded p-3 bg-light d-none">
+                            <div class="mb-2">
+                                <label asp-for="NewProjectName" class="form-label">Project Name</label>
+                                <input asp-for="NewProjectName" class="form-control" />
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-2">
+                                    <label asp-for="NewProjectStartDate" class="form-label">Project Start</label>
+                                    <input asp-for="NewProjectStartDate" type="date" class="form-control" />
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label asp-for="NewProjectEndDate" class="form-label">Project End</label>
+                                    <input asp-for="NewProjectEndDate" type="date" class="form-control" />
+                                </div>
+                                <div class="col-md-4 mb-2">
+                                    <label asp-for="NewProjectSiteId" class="form-label">Site</label>
+                                    <select asp-for="NewProjectSiteId" class="form-select">
+                                        <option value="">-- Select Site --</option>
+                                        @foreach (var site in Model.AvailableSites)
+                                        {
+                                            <option value="@site.SiteId">@site.SiteName</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Equipment selection -->
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">Equipment Asset</div>
+                    <div class="card-body">
+                        <label asp-for="EquipmentId" class="form-label">Select Equipment</label>
+                        <select asp-for="EquipmentId" class="form-select" required>
+                            <option value="">-- Select Equipment --</option>
+                            @foreach (var item in Model.AvailableEquipment)
+                            {
+                                <option value="@item.Id">@item.Name (@item.Category) — @item.SiteName</option>
+                            }
+                        </select>
+                        <span asp-validation-for="EquipmentId" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <!-- Date range -->
+                <div class="card mb-3">
+                    <div class="card-header fw-bold">Date Range</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label asp-for="StartDate" class="form-label">Start Date</label>
+                                <input asp-for="StartDate" type="date" class="form-control"
+                                       min="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                                       max="@DateOnly.FromDateTime(DateTime.Today.AddDays(90)).ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="StartDate" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label asp-for="EndDate" class="form-label">End Date</label>
+                                <input asp-for="EndDate" type="date" class="form-control"
+                                       min="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                                       max="@DateOnly.FromDateTime(DateTime.Today.AddDays(90)).ToString("yyyy-MM-dd")" />
+                                <span asp-validation-for="EndDate" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Check Availability &amp; Reserve</button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('createNewProject').addEventListener('change', function () {
+            document.getElementById('newProjectFields').classList.toggle('d-none', !this.checked);
+            document.getElementById('projectSelect').disabled = this.checked;
+        });
+    </script>
+}
