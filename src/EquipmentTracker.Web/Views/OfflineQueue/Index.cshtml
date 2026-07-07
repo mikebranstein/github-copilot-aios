@@ -1,0 +1,195 @@
+@{
+    ViewData["Title"] = "Offline Queue";
+    Layout = "_Layout";
+}
+
+<div class="container py-3">
+    <h4 class="mb-1">📋 Offline Queue</h4>
+    <p class="text-muted small mb-3">
+        Transactions recorded while offline. They are automatically synced when you
+        reconnect. IndexedDB persistence is a browser-level guarantee — data survives
+        browser close and device restart.
+    </p>
+
+    <!-- AC5: Online/offline status summary -->
+    <div id="connection-status" class="alert mb-3" role="alert">
+        Checking connection…
+    </div>
+
+    <!-- Sync Now button (always available for manual trigger) -->
+    <div class="d-flex gap-2 mb-3">
+        <button id="sync-now-btn" class="btn btn-primary" onclick="manualSync()">
+            🔄 Sync Now
+        </button>
+        <button class="btn btn-outline-danger" onclick="confirmClearAll()">
+            🗑️ Clear All
+        </button>
+    </div>
+
+    <!-- Transaction table -->
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Type</th>
+                    <th>Item ID</th>
+                    <th>Offline Time</th>
+                    <th>Status</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="queue-tbody">
+                <tr id="loading-row">
+                    <td colspan="5" class="text-muted text-center py-4">Loading…</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- AC2: Catalog cache freshness indicator -->
+    <hr />
+    <h6 class="text-muted">Catalog Cache</h6>
+    <div id="catalog-freshness" class="small text-muted">Checking catalog cache…</div>
+</div>
+
+@section Scripts {
+<script>
+    // ── Render transaction list ──────────────────────────────────────────────
+
+    async function renderQueue() {
+        const tbody = document.getElementById('queue-tbody');
+        tbody.innerHTML = '';
+
+        const all = await window.OfflineDB.getAll();
+
+        if (all.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">No transactions in queue.</td></tr>';
+            return;
+        }
+
+        // Sort by offlineTimestamp descending (newest first)
+        all.sort((a, b) => new Date(b.offlineTimestamp) - new Date(a.offlineTimestamp));
+
+        for (const tx of all) {
+            const statusBadge = statusBadgeHtml(tx.status);
+            const time        = tx.offlineTimestamp
+                ? new Date(tx.offlineTimestamp).toLocaleString()
+                : '—';
+            const details     = tx.conflictDetails
+                ? `<span class="text-danger small">${escapeHtml(tx.conflictDetails.slice(0, 120))}</span>`
+                : '—';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${escapeHtml(tx.type ?? '?')}</td>
+                <td>${escapeHtml(String(tx.itemId ?? '?'))}</td>
+                <td class="text-nowrap">${time}</td>
+                <td>${statusBadge}</td>
+                <td>${details}</td>`;
+            tbody.appendChild(row);
+        }
+    }
+
+    function statusBadgeHtml(status) {
+        const map = {
+            pending  : 'bg-warning text-dark',
+            synced   : 'bg-success',
+            conflict : 'bg-danger',
+            error    : 'bg-secondary'
+        };
+        const cls = map[status] ?? 'bg-light text-dark';
+        return `<span class="badge ${cls}">${escapeHtml(status ?? 'unknown')}</span>`;
+    }
+
+    // ── Connection status ────────────────────────────────────────────────────
+
+    function updateConnectionStatus() {
+        const el = document.getElementById('connection-status');
+        if (navigator.onLine) {
+            el.className = 'alert alert-success mb-3';
+            el.textContent = '🟢 Online — transactions will sync automatically.';
+        } else {
+            el.className = 'alert alert-warning mb-3';
+            el.textContent = '🟠 Offline — transactions will sync when you reconnect.';
+        }
+    }
+
+    window.addEventListener('online',  () => { updateConnectionStatus(); renderQueue(); });
+    window.addEventListener('offline', updateConnectionStatus);
+
+    // ── Manual sync ──────────────────────────────────────────────────────────
+
+    async function manualSync() {
+        const btn = document.getElementById('sync-now-btn');
+        btn.disabled    = true;
+        btn.textContent = '⏳ Syncing…';
+        await window.OfflineSync?.triggerSync();
+        btn.disabled    = false;
+        btn.textContent = '🔄 Sync Now';
+        await renderQueue();
+    }
+
+    // ── Clear all ────────────────────────────────────────────────────────────
+
+    function confirmClearAll() {
+        if (!confirm('Clear all transactions from the local queue? This cannot be undone.')) return;
+        window.OfflineDB.clear().then(() => {
+            window.OfflineQueue.updateBadge();
+            renderQueue();
+        });
+    }
+
+    // ── AC2: Catalog cache freshness ─────────────────────────────────────────
+
+    async function checkCatalogFreshness() {
+        const el = document.getElementById('catalog-freshness');
+        try {
+            // Open catalog cache and look for the snapshot entry
+            const cache    = await caches.open('equipment-tracker-catalog-v1');
+            const response = await cache.match('/api/offline/catalog-snapshot');
+
+            if (!response) {
+                el.textContent = 'No catalog snapshot cached.';
+                return;
+            }
+
+            const data = await response.clone().json();
+            if (!data.generatedAtUtc) {
+                el.textContent = 'Catalog snapshot cached (timestamp unknown).';
+                return;
+            }
+
+            const generated = new Date(data.generatedAtUtc);
+            const ageMs     = Date.now() - generated.getTime();
+            const ageHours  = ageMs / (1000 * 60 * 60);
+            const ageLabel  = ageHours < 1
+                ? `${Math.round(ageMs / 60000)} minutes`
+                : `${ageHours.toFixed(1)} hours`;
+
+            if (ageHours > 24) {
+                el.innerHTML =
+                    `<span class="text-danger fw-semibold">⚠️ Catalog snapshot is ${ageLabel} old — may be stale. ` +
+                    `<a href="/api/offline/catalog-snapshot">Refresh</a></span>`;
+            } else {
+                el.textContent = `As of ${generated.toLocaleString()} (${ageLabel} ago, ${data.items?.length ?? 0} items).`;
+            }
+        } catch (e) {
+            el.textContent = 'Could not read catalog cache.';
+        }
+    }
+
+    function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        updateConnectionStatus();
+        await renderQueue();
+        checkCatalogFreshness();
+    });
+</script>
+}

@@ -22,6 +22,9 @@ builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
 builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
 
+// Offline sync service (Issue #41)
+builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
+
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 

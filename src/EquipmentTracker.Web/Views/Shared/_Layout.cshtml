@@ -9,6 +9,25 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/EquipmentTracker.Web.styles.css" asp-append-version="true" />
+    <style>
+        /* AC5: Offline / online status indicator */
+        .online-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+            transition: background-color 0.3s;
+        }
+        .online-dot.online  { background-color: #28a745; }
+        .online-dot.offline { background-color: #fd7e14; }
+        #offline-queue-badge {
+            font-size: 0.65rem;
+            vertical-align: super;
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -42,6 +61,12 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="MobileReturn" asp-action="Scan">↩️ Return</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="OfflineQueue" asp-action="Index">
+                                    📋 Offline Queue
+                                    <span id="offline-queue-badge" class="badge bg-warning text-dark"></span>
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Profile" asp-action="Index">My Profile</a>
                             </li>
                             <li class="nav-item">
@@ -53,6 +78,8 @@
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item d-flex align-items-center me-2 text-muted">
+                                <!-- AC5: Online/offline status indicator -->
+                                <span id="online-status-dot" class="online-dot online" title="Online"></span>
                                 Signed in as @User.FindFirstValue(ClaimTypes.Name)
                             </li>
                             <li class="nav-item">
@@ -89,6 +116,23 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <!-- AC1/AC3/AC5: Offline support scripts -->
+        <script src="~/js/offline-db.js" asp-append-version="true"></script>
+        <script src="~/js/offline-queue.js" asp-append-version="true"></script>
+        <script src="~/js/offline-sync.js" asp-append-version="true"></script>
+        <script>
+            // AC3: Listen for TRIGGER_SYNC message from service worker (Background Sync)
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', event => {
+                    if (event.data?.type === 'TRIGGER_SYNC') {
+                        window.OfflineSync?.triggerSync();
+                    }
+                });
+            }
+        </script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

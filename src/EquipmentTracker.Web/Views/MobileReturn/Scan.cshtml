@@ -12,6 +12,11 @@
         <a href="#" onclick="retryLastAction(); return false;" class="alert-link ms-2">Tap to retry.</a>
     </div>
 
+    <!-- AC5: Offline mode banner -->
+    <div id="offline-banner" class="alert alert-warning d-none" role="alert">
+        📴 <strong>You are offline.</strong> Returns will be saved to your device and synced when you reconnect.
+    </div>
+
     <!-- Camera scanning area -->
     <div id="scan-area" class="mb-3">
         <div class="ratio" style="--bs-aspect-ratio: 75%; background:#000; border-radius:8px; overflow:hidden;">
@@ -174,5 +179,17 @@
 
     document.addEventListener('DOMContentLoaded', startCamera);
     window.addEventListener('beforeunload', stopCamera);
+
+    // AC5: Show offline banner
+    function updateOfflineBanner() {
+        const banner = document.getElementById('offline-banner');
+        if (banner) {
+            if (!navigator.onLine) banner.classList.remove('d-none');
+            else banner.classList.add('d-none');
+        }
+    }
+    window.addEventListener('online',  updateOfflineBanner);
+    window.addEventListener('offline', updateOfflineBanner);
+    document.addEventListener('DOMContentLoaded', updateOfflineBanner);
 </script>
 }
