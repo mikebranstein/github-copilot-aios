@@ -22,6 +22,9 @@ builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
 builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
 
+// Field Manager bulk checkout/return service (Issue #114)
+builder.Services.AddSingleton<IFieldBulkCheckoutService, FieldBulkCheckoutService>();
+
 // Offline sync service (Issue #41)
 builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 
