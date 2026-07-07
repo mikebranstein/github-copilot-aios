@@ -11,9 +11,9 @@ public class EquipmentService : IEquipmentService
 
     public EquipmentService()
     {
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Laptop", Category = "Electronics", IsAvailable = true });
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Projector", Category = "Electronics", IsAvailable = true });
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Whiteboard Marker Set", Category = "Stationery", IsAvailable = true });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Laptop", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Projector", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Whiteboard Marker Set", Category = "Stationery", IsAvailable = true, Status = EquipmentStatus.Available });
     }
 
     public IReadOnlyList<EquipmentItem> GetAllItems() => _items.AsReadOnly();
@@ -27,19 +27,29 @@ public class EquipmentService : IEquipmentService
             Id = _nextItemId++,
             Name = name,
             Category = category,
-            IsAvailable = true
+            IsAvailable = true,
+            Status = EquipmentStatus.Available,
+            LastUpdatedAtUtc = DateTime.UtcNow
         };
         _items.Add(item);
         return item;
     }
 
-    public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null)
+    public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null, int? newSiteId = null)
     {
         var item = GetItem(itemId);
         if (item is null || !item.IsAvailable)
             return false;
 
         item.IsAvailable = false;
+        item.Status = EquipmentStatus.InUse;
+        item.LastUpdatedAtUtc = DateTime.UtcNow;
+
+        if (newSiteId.HasValue)
+        {
+            item.SiteId = newSiteId.Value;
+            item.LastUpdatedAtUtc = DateTime.UtcNow;
+        }
 
         _records.Add(new CheckoutRecord
         {
@@ -62,6 +72,8 @@ public class EquipmentService : IEquipmentService
             return false;
 
         item.IsAvailable = true;
+        item.Status = EquipmentStatus.Available;
+        item.LastUpdatedAtUtc = DateTime.UtcNow;
 
         var record = _records
             .LastOrDefault(r => r.EquipmentItemId == itemId && r.ReturnedAtUtc is null);
@@ -97,17 +109,16 @@ public class EquipmentService : IEquipmentService
 
     public IReadOnlyList<CheckoutHistoryEntry> GetAllCheckoutHistory()
     {
-        // Build a lookup so we can resolve item names without repeated scans
         var itemNameById = _items.ToDictionary(i => i.Id, i => i.Name);
 
         return _records
             .OrderByDescending(r => r.CheckedOutAtUtc)
             .Select(r => new CheckoutHistoryEntry
             {
-                ItemName       = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
-                HolderName     = r.BorrowerName,
+                ItemName = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
+                HolderName = r.BorrowerName,
                 CheckedOutAtUtc = r.CheckedOutAtUtc,
-                ReturnedAtUtc  = r.ReturnedAtUtc
+                ReturnedAtUtc = r.ReturnedAtUtc
             })
             .ToList()
             .AsReadOnly();
@@ -123,10 +134,10 @@ public class EquipmentService : IEquipmentService
             .Take(limit)
             .Select(r => new CheckoutHistoryEntry
             {
-                ItemName        = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
-                HolderName      = r.BorrowerName,
+                ItemName = itemNameById.TryGetValue(r.EquipmentItemId, out var name) ? name : "(unknown)",
+                HolderName = r.BorrowerName,
                 CheckedOutAtUtc = r.CheckedOutAtUtc,
-                ReturnedAtUtc   = r.ReturnedAtUtc
+                ReturnedAtUtc = r.ReturnedAtUtc
             })
             .ToList()
             .AsReadOnly();
@@ -146,4 +157,39 @@ public class EquipmentService : IEquipmentService
 
     public IReadOnlyList<CheckoutRecord> GetAllRawCheckoutRecords() =>
         _records.OrderByDescending(r => r.CheckedOutAtUtc).ToList().AsReadOnly();
+
+    public IReadOnlyList<EquipmentItem> GetItemsBySite(int? siteId)
+    {
+        var items = siteId.HasValue
+            ? _items.Where(i => i.SiteId == siteId.Value)
+            : _items;
+
+        return items.ToList().AsReadOnly();
+    }
+
+    public IReadOnlyList<EquipmentItem> GetItemsByStatus(EquipmentStatus status) =>
+        _items.Where(i => i.Status == status).ToList().AsReadOnly();
+
+    public bool UpdateItemSite(int itemId, int? siteId)
+    {
+        var item = GetItem(itemId);
+        if (item is null)
+            return false;
+
+        item.SiteId = siteId;
+        item.LastUpdatedAtUtc = DateTime.UtcNow;
+        return true;
+    }
+
+    public bool UpdateItemStatus(int itemId, EquipmentStatus status)
+    {
+        var item = GetItem(itemId);
+        if (item is null)
+            return false;
+
+        item.Status = status;
+        item.IsAvailable = status == EquipmentStatus.Available;
+        item.LastUpdatedAtUtc = DateTime.UtcNow;
+        return true;
+    }
 }

@@ -9,7 +9,7 @@ public interface IEquipmentService
     EquipmentItem CreateItem(string name, string category);
 
     /// <summary>Returns false if the item does not exist or is already checked out.</summary>
-    bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null);
+    bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null, int? newSiteId = null);
 
     /// <summary>Returns false if the item does not exist or is already available.</summary>
     bool Return(int itemId, string? returnConditionNote = null);
@@ -49,4 +49,9 @@ public interface IEquipmentService
     /// pair was created within the last 60 seconds. Used for server-side idempotency.
     /// </summary>
     bool IsIdempotentCheckout(int itemId, int borrowerUserId);
+
+    IReadOnlyList<EquipmentItem> GetItemsBySite(int? siteId);
+    IReadOnlyList<EquipmentItem> GetItemsByStatus(EquipmentStatus status);
+    bool UpdateItemSite(int itemId, int? siteId);
+    bool UpdateItemStatus(int itemId, EquipmentStatus status);
 }

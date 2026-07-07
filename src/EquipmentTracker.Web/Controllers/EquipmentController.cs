@@ -1,27 +1,29 @@
 using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace EquipmentTracker.Web.Controllers;
 
 public class EquipmentController : Controller
 {
     private readonly IEquipmentService _equipmentService;
+    private readonly ISiteService _siteService;
     private readonly IConfiguration _configuration;
 
-    public EquipmentController(IEquipmentService equipmentService, IConfiguration configuration)
+    public EquipmentController(IEquipmentService equipmentService, ISiteService siteService, IConfiguration configuration)
     {
         _equipmentService = equipmentService;
+        _siteService = siteService;
         _configuration = configuration;
     }
 
-    // GET /Equipment
     public IActionResult Index()
     {
         int overdueThresholdDays = _configuration.GetValue<int>("Checkout:OverdueThresholdDays", 7);
         var utcNow = DateTime.UtcNow;
-
         var items = _equipmentService.GetAllItems();
+        var siteNames = _siteService.GetAllSites().ToDictionary(site => site.Id, site => site.Name);
 
         var rows = items.Select(item =>
         {
@@ -46,25 +48,25 @@ public class EquipmentController : Controller
                 IsAvailable = item.IsAvailable,
                 IsOverdue = isOverdue,
                 BorrowerName = activeRecord?.BorrowerName,
-                DaysCheckedOut = daysCheckedOut
+                DaysCheckedOut = daysCheckedOut,
+                Status = item.Status,
+                SiteName = item.SiteId.HasValue && siteNames.TryGetValue(item.SiteId.Value, out var siteName) ? siteName : null
             };
         }).ToList();
 
         var model = new EquipmentListViewModel
         {
             Items = rows,
-            AvailableCount = rows.Count(r => r.IsAvailable)
+            AvailableCount = rows.Count(r => r.Status == EquipmentTracker.Web.Models.EquipmentStatus.Available)
         };
         return View(model);
     }
 
-    // GET /Equipment/Create
     public IActionResult Create()
     {
         return View(new CreateEquipmentViewModel());
     }
 
-    // POST /Equipment/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Create(CreateEquipmentViewModel model)
@@ -78,7 +80,6 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET /Equipment/Checkout/5
     public IActionResult Checkout(int id)
     {
         var item = _equipmentService.GetItem(id);
@@ -94,20 +95,35 @@ public class EquipmentController : Controller
         var model = new CheckoutViewModel
         {
             EquipmentItemId = item.Id,
-            EquipmentItemName = item.Name
+            EquipmentItemName = item.Name,
+            ConfirmedSiteId = item.SiteId
         };
+        PopulateCheckoutSiteFields(model, item);
         return View(model);
     }
 
-    // POST /Equipment/Checkout
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Checkout(CheckoutViewModel model)
     {
-        if (!ModelState.IsValid)
-            return View(model);
+        var item = _equipmentService.GetItem(model.EquipmentItemId);
+        if (item is null)
+            return NotFound();
 
-        var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName);
+        if (model.ConfirmedSiteId.HasValue)
+        {
+            var selectedSite = _siteService.GetSite(model.ConfirmedSiteId.Value);
+            if (selectedSite is null || !selectedSite.IsActive)
+                ModelState.AddModelError(nameof(model.ConfirmedSiteId), "Please choose an active site.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            PopulateCheckoutSiteFields(model, item);
+            return View(model);
+        }
+
+        var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName, newSiteId: model.ConfirmedSiteId);
         if (!success)
         {
             var currentHolder = _equipmentService.GetCurrentHolder(model.EquipmentItemId);
@@ -115,6 +131,7 @@ public class EquipmentController : Controller
                 ? $"'{model.EquipmentItemName}' is already checked out by {currentHolder}."
                 : $"'{model.EquipmentItemName}' is no longer available for checkout.";
             ModelState.AddModelError(string.Empty, errorMessage);
+            PopulateCheckoutSiteFields(model, item);
             return View(model);
         }
 
@@ -122,7 +139,6 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET /Equipment/History/5
     public IActionResult History(int id)
     {
         var item = _equipmentService.GetItem(id);
@@ -139,7 +155,6 @@ public class EquipmentController : Controller
         return View(model);
     }
 
-    // POST /Equipment/Return/5
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Return(int id)
@@ -159,5 +174,15 @@ public class EquipmentController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private void PopulateCheckoutSiteFields(CheckoutViewModel model, EquipmentTracker.Web.Models.EquipmentItem item)
+    {
+        model.CurrentSiteName = item.SiteId.HasValue ? _siteService.GetSite(item.SiteId.Value)?.Name : null;
+        model.SiteOptions =
+        [
+            new SelectListItem("No change", ""),
+            .. _siteService.GetActiveSites().Select(site => new SelectListItem(site.Name, site.Id.ToString()))
+        ];
     }
 }

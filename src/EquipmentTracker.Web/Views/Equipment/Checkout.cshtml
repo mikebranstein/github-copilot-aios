@@ -21,10 +21,24 @@
                 <p class="form-control-plaintext fw-bold">@Model.EquipmentItemName</p>
             </div>
 
+            @if (!string.IsNullOrWhiteSpace(Model.CurrentSiteName))
+            {
+                <div class="mb-3">
+                    <label class="form-label">Current Site</label>
+                    <p class="form-control-plaintext">@Model.CurrentSiteName</p>
+                </div>
+            }
+
             <div class="mb-3">
                 <label asp-for="BorrowerName" class="form-label"></label>
                 <input asp-for="BorrowerName" class="form-control" placeholder="Your full name" />
                 <span asp-validation-for="BorrowerName" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="ConfirmedSiteId" class="form-label">Confirm or Update Site</label>
+                <select asp-for="ConfirmedSiteId" asp-items="Model.SiteOptions" class="form-select"></select>
+                <span asp-validation-for="ConfirmedSiteId" class="text-danger"></span>
             </div>
 
             <button type="submit" class="btn btn-primary">Confirm Checkout</button>

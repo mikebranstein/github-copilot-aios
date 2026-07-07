@@ -1,23 +1,35 @@
 using EquipmentTracker.Web.Models;
+using ModelStatus = EquipmentTracker.Web.Models.EquipmentStatus;
 
 namespace EquipmentTracker.Web.ViewModels;
 
-/// <summary>Per-row data for the equipment list, including overdue status.</summary>
 public class EquipmentListItemViewModel
 {
     public int Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public string Category { get; init; } = string.Empty;
     public bool IsAvailable { get; init; }
-
-    /// <summary>True when the item is checked out and has exceeded the overdue threshold.</summary>
     public bool IsOverdue { get; init; }
-
-    /// <summary>Borrower name from the active checkout record; null when available.</summary>
     public string? BorrowerName { get; init; }
-
-    /// <summary>Number of whole days the item has been checked out; 0 when available.</summary>
     public int DaysCheckedOut { get; init; }
+    public ModelStatus Status { get; init; }
+    public string? SiteName { get; init; }
+    public string StatusBadgeClass => Status switch
+    {
+        ModelStatus.Available => "bg-success",
+        ModelStatus.InUse => "bg-warning text-dark",
+        ModelStatus.Reserved => "bg-info text-dark",
+        ModelStatus.Maintenance => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+    public string StatusDisplay => Status switch
+    {
+        ModelStatus.Available => "Available",
+        ModelStatus.InUse => "In Use",
+        ModelStatus.Reserved => "Reserved",
+        ModelStatus.Maintenance => "Maintenance",
+        _ => Status.ToString()
+    };
 }
 
 public class EquipmentListViewModel
