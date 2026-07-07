@@ -74,6 +74,13 @@ No concurrent processing across pm-ideas. Each pm-idea goes completely through a
    - Leave pm-idea OPEN
    - **Proceed to step 3b**
 
+**GUARDRAIL: Follow-On Research Limit**
+- Each pm-idea can spawn AT MOST 2 research rounds:
+  - Round 1: Initial research: items (created by PM Phase 1)
+  - Round 2: Follow-on research (CRITICAL items only, created by PM Phase 2)
+- If Round 2 follow-on research identifies more CRITICAL items: PM Phase 2 decides DEFER (research is sufficient, do not spawn Round 3)
+- This prevents infinite research loops
+
 3b. **Spawn Research Agent on all research items** (autonomous research execution):
    - Find all `research:` items linked to this pm-idea:
      ```bash
@@ -95,22 +102,33 @@ No concurrent processing across pm-ideas. Each pm-idea goes completely through a
    - **Proceed to step 4**
 
 4. **Monitor for research completion** (same issue):
+   
+   Check for BOTH initial research AND follow-on research items:
    ```bash
+   # Find all research: items (initial and follow-on)
    gh issue view <pm-idea-#N> --json body | grep -o "#\d\+" | while read research_item; do
+     # Check if this is initial research OR follow-on research
+     label=$(gh issue view $research_item --json labels)
      status=$(gh issue view $research_item --json state)
+     
      if status is OPEN; then
-       echo "Research agent still working on #${research_item}..."
+       echo "Research still working on #${research_item}..."
        exit 1
      fi
    done
    ```
-   - If ANY research items still OPEN → Output "Research in progress on #23, #24, #25..." → **End cycle, wait 30 seconds, loop back to step 4**
-   - If ALL research items CLOSED → **Proceed to step 5**
+   - If ANY research items (initial or follow-on) still OPEN → Output "Research in progress on #23, #24, #25..." → **End cycle, wait 30 seconds, loop back to step 4**
+   - If ALL research items CLOSED (including follow-on) → **Proceed to step 5**
 
 5. **Spawn PM agent for PHASE 2 (same issue):**
-   - Post routing comment: "All research items complete. Starting Phase 2 Final Validation on this pm-idea..."
-   - Spawn: `task(description="Validate pm-idea on issue #N with completed research - Phase 2 Final Validation", agent_id="product-manager")`
+   - Post routing comment: "All research items complete (Round 1 + any Round 2 follow-on). Starting Phase 2 Final Validation on this pm-idea..."
+   - Spawn: `task(description="Validate pm-idea on issue #N with completed research - Phase 2 Final Validation (may spawn CRITICAL follow-on research if needed)", agent_id="product-manager")`
    - **Wait for completion**
+   
+   What Phase 2 does:
+   - Evaluates CRITICAL next steps (severity-rated by Research Agent)
+   - If CRITICAL items exist: Spawns follow-on research, loops back to step 4
+   - If NO CRITICAL items: Makes final CHAMPION/DEFER/BLOCK decision
 
 6. **Phase 2 Agent Output:**
    - Read completed Research Wiki

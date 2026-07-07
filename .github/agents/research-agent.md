@@ -680,6 +680,120 @@ Create/Update Research Wiki pages with **explicit evidence hierarchy and confide
 - Next research questions needed
 - Validation experiments to run
 
+#### Step 4b: Wiki Update Procedure (CRITICAL - Execute Before Closing)
+
+**⚠️ MANDATORY:** Complete ALL wiki updates BEFORE closing the research issue. If no wiki pages are updated, PM Phase 2 will have no research data and cannot validate the decision.
+
+**For each Wiki page needed (Personas-[Name], Journey-Maps-[Name], Research-to-Decision-Index, Strategic-Findings-[Quarter]):**
+
+1. **CHECK: Does the wiki page exist?**
+   ```bash
+   gh wiki list | grep "Personas-[PersonaName]"
+   ```
+   - If page is listed: PROCEED TO STEP 2 (UPDATE)
+   - If page is NOT listed: PROCEED TO STEP 1b (CREATE)
+
+2. **IF PAGE DOESN'T EXIST - CREATE IT:**
+   
+   Create the new wiki page with research content:
+   ```bash
+   gh wiki create "Personas-[PersonaName]" --body "[content from Step 4 above]"
+   ```
+   
+   Then verify it was created:
+   ```bash
+   gh wiki view "Personas-[PersonaName]"
+   ```
+   
+   Post comment on research issue:
+   ```
+   ✅ Wiki page created: Personas-[PersonaName]
+   [Include link to wiki page]
+   ```
+
+3. **IF PAGE EXISTS - UPDATE/APPEND IT:**
+   
+   Read the current wiki page content:
+   ```bash
+   gh wiki view "Personas-[PersonaName]" > current_content.md
+   ```
+   
+   Append new research findings (keep existing content, add new findings with research round date):
+   ```
+   ## Research Update: [Date] - Research Round [N]
+   
+   [New findings from this research item]
+   - Evidence: [N support tickets, N case studies, N interviews]
+   - Confidence: [HIGH/MEDIUM/LOW]
+   - Sources: [specific sources]
+   
+   Updated by research issue: #[this-issue-number]
+   ```
+   
+   Update the wiki page:
+   ```bash
+   gh wiki update "Personas-[PersonaName]" --body "[combined old + new content]"
+   ```
+   
+   Verify the update worked:
+   ```bash
+   gh wiki view "Personas-[PersonaName]" | grep "[keyword from new findings]"
+   ```
+   
+   Post comment on research issue:
+   ```
+   ✅ Wiki page updated: Personas-[PersonaName]
+   - Added [X] new research findings
+   - Total evidence count: N=[Y] data points
+   - Confidence level: [HIGH/MEDIUM/LOW]
+   [Include link to wiki page]
+   ```
+
+4. **LINK BACK TO RESEARCH ISSUE:**
+   
+   In wiki page, add link back to research issue:
+   ```
+   **Research Source:** Issue #[this-issue-number]
+   ```
+   
+   In research issue, add link to wiki page:
+   ```
+   Wiki pages updated:
+   - [Link to Personas-[Name]] ✅
+   - [Link to Journey-Maps-[Name]] ✅
+   - [Link to Research-to-Decision-Index] ✅
+   ```
+
+5. **VERIFY ALL PAGES UPDATED:**
+   
+   Before proceeding to Step 5 (closure), confirm:
+   - ✅ All required wiki pages exist (create if missing)
+   - ✅ All new research findings are added to wiki
+   - ✅ All wiki pages include evidence counts (N=[X])
+   - ✅ All wiki pages include confidence levels (HIGH/MEDIUM/LOW)
+   - ✅ All wiki pages link back to research issue
+   - ✅ Research issue links to all updated wiki pages
+   
+   Post summary comment on research issue:
+   ```
+   ## Wiki Update Summary ✅
+   
+   All required wiki pages updated:
+   - Personas-[Name]: [N] data points, Confidence: [HIGH]
+   - Journey-Maps-[Name]: [N] data points, Confidence: [MEDIUM]
+   - Research-to-Decision-Index: Entry added linking [problem] → [finding] → [decision]
+   - Strategic-Findings-[Quarter]: Top 3 findings recorded
+   
+   Ready for PM Phase 2 validation.
+   ```
+
+**IF ANY WIKI PAGE FAILS TO UPDATE:**
+- Do NOT close the research issue yet
+- Post error comment: "Wiki update failed for [page]. Error: [reason]. Investigating..."
+- Troubleshoot the issue (check page exists, content valid, permissions)
+- Retry the update
+- Only after ALL pages successfully updated: PROCEED TO STEP 5
+
 #### Step 5: Synthesize & Close with Confidence Scoring
 
 Post final research summary comment:
@@ -724,9 +838,30 @@ Post final research summary comment:
 - Research-to-Decision-Index ✅
 - Strategic-Findings-[Quarter] ✅
 
-**Next Steps (If Approved):**
-- Validate assumption X with [experiment/interview/data review]
-- Deep-dive into [risk area] with [specific research method]
+**Next Steps Assessment (Severity-Rated for Follow-On Research):**
+
+**CRITICAL - MUST VALIDATE BEFORE CHAMPION DECISION:**
+- [Next step 1]: [Why this is critical] → Blocks CHAMPION decision
+  - Recommended method: [research method]
+  - Estimated effort: [hours]
+  - If not validated: Decision changes to DEFER/BLOCK
+
+**HIGH - Strongly Recommended Before Decision:**
+- [Next step 1]: [Why this is important] → Increases confidence in CHAMPION
+  - Recommended method: [research method]
+  - Estimated effort: [hours]
+  - If not validated: CHAMPION decision still valid but riskier
+
+**MEDIUM - Nice-to-Have Before Launch:**
+- [Next step 1]: [Why this would be useful] → Informs GTM strategy
+  - Recommended method: [research method]
+  - Estimated effort: [hours]
+  - Timeline: Can be done post-launch
+
+**LOW - Exploratory/Future Research:**
+- [Next step 1]: [Long-term research question] → Future learning
+  - Recommended method: [research method]
+  - Timeline: Q[X] research or later
 
 **Research Quality Notes:**
 - Data sources: [Mix of Tier 1, 2, 3]

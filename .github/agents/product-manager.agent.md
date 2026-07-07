@@ -173,17 +173,116 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
    - Document confidence level (N interviews, which segments covered)
    - Identify any gaps or contradictions
 
-3. **Final validation** (Post as comment on strategic-opportunity):
+2b. **Verify and Read Completed Research Wiki - Procedural Steps:**
+
+   **CRITICAL:** Do NOT skip this. Research Wiki contains all data needed to validate CHAMPION decision.
+
+   **Access GitHub Wiki:**
+   ```bash
+   # Open the repository Wiki (usually at: github.com/[owner]/[repo]/wiki)
+   gh wiki view Home  # Verify Wiki is accessible
+   ```
+
+   **For each research: item that was closed, find corresponding Wiki pages:**
+
+   Research item closed: `research: [Persona Name] for [Idea]`
+   → Look for these Wiki pages:
+   - `Personas-[PersonaName]`
+   - `Journey-Maps-[PersonaName]` (if created)
+   - `Interview-Transcripts-[Quarter]` (if created)
+   - `Research-to-Decision-Index` (main findings index)
+   - `Strategic-Findings-[Quarter]` (top 3 insights)
+
+   **Read each page - Verify Update:**
+   ```bash
+   # Check Personas page was updated
+   gh wiki view "Personas-[PersonaName]"
+   
+   # Look for:
+   # ✅ Timestamp showing recent update (last 2 weeks)
+   # ✅ Evidence counts (N=[X] support tickets, N=[Y] interviews)
+   # ✅ Confidence levels (HIGH/MEDIUM/LOW assigned to each finding)
+   # ✅ Research source link (reference to research: issue #[N])
+   ```
+
+   If page NOT found or NOT updated:
+   ```
+   Post comment on strategic-opportunity: "ERROR: Expected Wiki page not found or not updated: Personas-[PersonaName]. Research may not be complete. Investigating..."
+   DO NOT PROCEED. Return to Orchestrator to check if research: item actually closed properly.
+   ```
+
+   **Extract Key Data from Each Page:**
+
+   **From Personas-[PersonaName]:**
+   - Primary job to be done (copy exact phrasing)
+   - Top 3 frustrations (with frequency % if available)
+   - Evidence count: N=[X] (how many support tickets/interviews)
+   - Confidence: [HIGH/MEDIUM/LOW] assigned by Research Agent
+
+   **From Journey-Maps-[PersonaName]:**
+   - Stage with highest friction (e.g., "Stage 3: Regular Usage, 60% of users hit blocker X")
+   - Churn signals (if noted)
+   - Customer impact quantified (if available: % affected, time lost, revenue impact)
+
+   **From Research-to-Decision-Index:**
+   ```
+   Find row(s) matching this opportunity:
+   | Problem | Persona | Stage | Research Finding | Evidence Source | Confidence | Strategic Implication |
+   | [Match] | [Pers]  | [S]   | [Finding]        | [Source, N=X]   | [HIGH]     | [Action implication] |
+   ```
+
+   **From Strategic-Findings-[Quarter]:**
+   - Top 3 research findings for this topic
+   - Market opportunity quantification (TAM/SAM/SOM with confidence)
+   - Risk assessment (technical/org/timing barriers)
+
+   **Post Wiki Verification Comment:**
+   ```
+   ✅ Research Wiki Verified - Ready for Phase 2 Validation
+
+   Wiki Pages Reviewed:
+   - Personas-[Name]: Evidence N=[X], Confidence [HIGH]
+   - Journey-Maps-[Name]: [X%] users hit Stage [N] friction
+   - Research-to-Decision-Index: [X] findings linked to decision
+   - Strategic-Findings-[Quarter]: Market opportunity quantified
+
+   Proceeding to final validation with research evidence.
+   ```
+
+3. **Evaluate Follow-On Research Needs (Before final decision):**
+   
+   Read research comments for severity-rated Next Steps Assessment:
+   - Are there any CRITICAL follow-on research items identified?
+   - CRITICAL = must validate before CHAMPION decision can be made
+   
+   If CRITICAL items exist:
+   ```
+   Decision: DEFER Phase 2 decision, spawn follow-on research
+   - Create issue: "Research: [Topic] - Follow-On Critical Validation"
+   - Label: follow-on-research
+   - Body: [Copy CRITICAL next step from research comments]
+   - Note: "Linked to initial research issue #[N]. This is the only follow-on research allowed for this pm-idea."
+   - Post comment: "Spawning 1 follow-on research item to validate CRITICAL assumption before Phase 2 decision."
+   - RETURN to Orchestrator step 4 (monitor research completion)
+   ```
+   
+   If NO CRITICAL items (only HIGH/MEDIUM/LOW):
+   ```
+   Proceed to final validation (step 4 below)
+   Document HIGH/MEDIUM/LOW as Post-Launch Research Recommendations
+   ```
+
+4. **Final validation** (Post as comment on strategic-opportunity):
    - Re-assess strategic fit with research evidence
    - Calculate market opportunity score (with research data)
    - Evaluate competitive advantage (with research insights)
    - Estimate effort/feasibility (with persona feedback)
    - **Decision gate:** With research evidence, is this CHAMPION, DEFER, or BLOCK?
-     - If **CHAMPION** → Continue to step 4
-     - If **DEFER** → Jump to step 6
-     - If **BLOCK** → Jump to step 6
+     - If **CHAMPION** → Continue to step 5
+     - If **DEFER** → Jump to step 7
+     - If **BLOCK** → Jump to step 7
 
-4. **Confirm CHAMPION** (if decision holds):
+5. **Confirm CHAMPION** (if decision holds):
    - Update strategic-opportunity body:
      ```
      **Status:** RESEARCH VALIDATED ✅
@@ -194,6 +293,13 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
      - Persona fit: [Which personas, journey stages]
      - Competitive advantage: [vs. alternatives, based on research]
      - Strategic alignment: [Which pillars, OKRs]
+     
+     **Research Rounds Completed:** 1 (or 1 + 1 follow-on)
+     
+     **Post-Launch Research Recommendations (HIGH/MEDIUM/LOW priority):**
+     - [HIGH: Validate assumption X post-launch]
+     - [MEDIUM: Explore use case Y in Q[X]]
+     - [LOW: Long-term research on topic Z]
      
      **Research Pages:**
      - [Link] Personas-[Name]
