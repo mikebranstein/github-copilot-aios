@@ -1,0 +1,93 @@
+@model EquipmentTracker.Web.ViewModels.DowntimeCostCalculatorViewModel
+
+@{
+    ViewData["Title"] = "Downtime Cost Calculator";
+}
+
+<div class="container mt-4">
+    <h1>💰 Downtime Cost Calculator</h1>
+    <p class="text-muted">
+        See what unplanned equipment downtime is costing your operation — and what Smart Maintenance Scheduling can save you.
+    </p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <form method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label asp-for="AssetCount" class="form-label">Number of Assets Enrolled</label>
+                    <input asp-for="AssetCount" type="number" min="1" class="form-control" />
+                    <div class="form-text">Assets enrolled in Smart Maintenance Scheduling.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="DailyCostEstimate" class="form-label">Estimated Daily Downtime Cost ($)</label>
+                    <input asp-for="DailyCostEstimate" type="number" min="100" step="50" class="form-control" />
+                    <div class="form-text">Industry average: $1,200–$1,700/day. Adjust to match your fleet.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="AvgRepairDays" class="form-label">Average Repair Duration (days)</label>
+                    <input asp-for="AvgRepairDays" type="number" min="0.5" step="0.5" class="form-control" />
+                    <div class="form-text">Industry average: 2–3 days per incident.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="EstimatedIncidentsPerYear" class="form-label">Estimated Unplanned Incidents per Year</label>
+                    <input asp-for="EstimatedIncidentsPerYear" type="number" min="1" step="1" class="form-control" />
+                    <div class="form-text">How many unplanned breakdowns does your fleet experience annually?</div>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg">Calculate My Savings</button>
+            </form>
+        </div>
+
+        @if (Model.Result is not null)
+        {
+            <div class="col-md-6">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h4 class="mb-0">Your Downtime Cost Summary</h4>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td>Assets Enrolled</td>
+                                <td class="fw-bold">@Model.Result.AssetCount</td>
+                            </tr>
+                            <tr>
+                                <td>Daily Cost Estimate</td>
+                                <td class="fw-bold">$@Model.Result.DailyCostEstimate.ToString("N0")/day</td>
+                            </tr>
+                            <tr>
+                                <td>Avg Repair Duration</td>
+                                <td class="fw-bold">@Model.Result.AvgRepairDays days/incident</td>
+                            </tr>
+                            <tr>
+                                <td>Estimated Incidents/Year</td>
+                                <td class="fw-bold">@Model.Result.EstimatedIncidentsPerYear</td>
+                            </tr>
+                            <tr class="table-danger">
+                                <td><strong>Estimated Annual Downtime Cost</strong></td>
+                                <td class="fw-bold fs-5 text-danger">$@Model.Result.EstimatedAnnualDowntimeCost.ToString("N0")</td>
+                            </tr>
+                            <tr class="table-success">
+                                <td><strong>Estimated Annual Savings (80% prevention)</strong></td>
+                                <td class="fw-bold fs-5 text-success">$@Model.Result.EstimatedAnnualSavings80Percent.ToString("N0")</td>
+                            </tr>
+                        </table>
+                        <p class="text-muted small mt-2">
+                            Savings estimate based on preventing 80% of unplanned failures through Smart Maintenance Scheduling.
+                            One prevented breakdown often pays for an annual subscription.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="mt-4">
+        <a href="@Url.Action("Dashboard")" class="btn btn-outline-secondary">← Back to Dashboard</a>
+    </div>
+</div>

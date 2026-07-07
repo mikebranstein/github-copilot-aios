@@ -1,0 +1,47 @@
+@model EquipmentTracker.Web.ViewModels.LogMaintenanceEventViewModel
+
+@{
+    ViewData["Title"] = "Log Maintenance Event";
+}
+
+<div class="container mt-4">
+    <h1>🔧 Log Maintenance Event</h1>
+    <h5 class="text-muted">Asset: @ViewBag.AssetName</h5>
+
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="AssetId" />
+
+        <div class="mb-3">
+            <label asp-for="EventType" class="form-label">Event Type *</label>
+            <input asp-for="EventType" class="form-control" placeholder="e.g. Oil Change, Annual Inspection, Tire Rotation" required />
+            <span asp-validation-for="EventType" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="EventDate" class="form-label">Service Date *</label>
+            <input asp-for="EventDate" type="date" class="form-control" required />
+            <span asp-validation-for="EventDate" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="HoursAtService" class="form-label">Operating Hours at Service *</label>
+            <input asp-for="HoursAtService" type="number" step="0.1" min="0" class="form-control" required />
+            <div class="form-text">Current operating hours are pre-filled from checkout records.</div>
+            <span asp-validation-for="HoursAtService" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="TechnicianName" class="form-label">Technician Name (optional)</label>
+            <input asp-for="TechnicianName" class="form-control" placeholder="e.g. John Smith" />
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Notes" class="form-label">Notes (optional)</label>
+            <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Any additional notes about this service event..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Log Event &amp; Reset Counter</button>
+        <a href="@Url.Action("AssetDetail", new { id = Model.AssetId })" class="btn btn-outline-secondary ms-2">Cancel</a>
+    </form>
+</div>

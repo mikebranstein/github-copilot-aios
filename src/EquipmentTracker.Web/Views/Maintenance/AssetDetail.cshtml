@@ -1,0 +1,129 @@
+@model EquipmentTracker.Web.ViewModels.MaintenanceHistoryViewModel
+@using EquipmentTracker.Web.Models
+
+@{
+    ViewData["Title"] = $"Maintenance — {Model.AssetName}";
+    var status = (MaintenanceBand)ViewBag.ServiceStatus;
+    var interval = ViewBag.ServiceInterval as ServiceInterval;
+}
+
+<div class="container mt-4">
+    <h1>🔧 @Model.AssetName — Maintenance Detail</h1>
+    <p class="text-muted">Category: @Model.Category</p>
+
+    @* AC-1: Usage-Rate Display *@
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h4>@Model.OperatingHours.ToString("F1") hrs</h4>
+                    <p class="text-muted">Total Operating Hours</p>
+                </div>
+            </div>
+        </div>
+        @if (ViewBag.HoursToNextService is double hoursRemaining)
+        {
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h4>@hoursRemaining.ToString("F1") hrs</h4>
+                        <p class="text-muted">Hours to Next Service</p>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (ViewBag.ProjectedServiceDate is DateTime projDate)
+        {
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h4>@projDate.ToString("MMM d, yyyy")</h4>
+                        <p class="text-muted">Projected Service Date</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* Service Status Band *@
+    @{
+        var badgeClass = status switch
+        {
+            MaintenanceBand.Overdue => "bg-danger",
+            MaintenanceBand.Caution => "bg-warning text-dark",
+            MaintenanceBand.InRange => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+    <p>
+        Service Status: <span class="badge @badgeClass fs-6">
+            @(status switch {
+                MaintenanceBand.Overdue => "⛔ Overdue",
+                MaintenanceBand.Caution => "⚠️ Caution",
+                MaintenanceBand.InRange => "✅ In Range",
+                _ => "ℹ️ No Data"
+            })
+        </span>
+    </p>
+
+    @if (interval is not null)
+    {
+        <p class="text-muted">
+            Service interval: <strong>@interval.IntervalValue @(interval.IntervalType == IntervalType.Hours ? "operating hours" : "days")</strong>
+        </p>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            No service interval configured for category <strong>@Model.Category</strong>.
+            <a href="@Url.Action("ServiceIntervals")">Configure intervals →</a>
+        </div>
+    }
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+
+    @* AC-4: Log Maintenance Event *@
+    <div class="mb-4">
+        <a href="@Url.Action("LogEvent", new { assetId = Model.AssetId })" class="btn btn-primary">
+            + Log Maintenance Event
+        </a>
+        <a href="@Url.Action("Dashboard")" class="btn btn-outline-secondary ms-2">← Dashboard</a>
+    </div>
+
+    @* Maintenance History *@
+    <h3>Maintenance History</h3>
+    @if (!Model.Events.Any())
+    {
+        <div class="alert alert-warning">No maintenance events logged for this asset.</div>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Event Type</th>
+                    <th>Hours at Service</th>
+                    <th>Technician</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var evt in Model.Events)
+                {
+                    <tr>
+                        <td>@evt.EventDate.ToString("MMM d, yyyy")</td>
+                        <td>@evt.EventType</td>
+                        <td>@evt.HoursAtService.ToString("F1")</td>
+                        <td>@(evt.TechnicianName ?? "—")</td>
+                        <td>@(evt.Notes ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="text-muted small">Maintenance records are retained for 7 years per OSHA requirements.</p>
+    }
+</div>
