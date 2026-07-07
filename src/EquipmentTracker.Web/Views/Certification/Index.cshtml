@@ -1,0 +1,119 @@
+@model EquipmentTracker.Web.ViewModels.ComplianceDashboardViewModel
+@using EquipmentTracker.Web.ViewModels
+
+@{
+    ViewData["Title"] = "Compliance Dashboard";
+}
+
+<h2>🛡️ Operator Compliance Dashboard</h2>
+<p class="text-muted">Color-coded certification status for all operators. RED = expired, YELLOW = expiring within 30 days, GREEN = compliant.</p>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<!-- Summary KPIs -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Operators</h5>
+                <p class="display-6">@Model.TotalOperators</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-danger">
+            <div class="card-body text-danger">
+                <h5 class="card-title">🔴 Non-Compliant</h5>
+                <p class="display-6">@Model.RedCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-warning">
+            <div class="card-body text-warning">
+                <h5 class="card-title">🟡 Expiring Soon</h5>
+                <p class="display-6">@Model.YellowCount</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-success">
+            <div class="card-body text-success">
+                <h5 class="card-title">🟢 Compliant</h5>
+                <p class="display-6">@Model.GreenCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="mb-3">
+    <a asp-action="CertLibrary" class="btn btn-outline-primary me-2">⚙️ Cert Library &amp; Requirements</a>
+    <a asp-action="BulkImport" class="btn btn-outline-secondary me-2">📥 Bulk Import</a>
+    <a asp-action="OverrideAuditLog" class="btn btn-outline-dark me-2">📋 Override Audit Log</a>
+    <a asp-action="OperatorProfile" asp-route-name="" class="btn btn-outline-info">👤 Operator Profile</a>
+</div>
+
+@if (!Model.Operators.Any())
+{
+    <div class="alert alert-info">No operator certification records on file. Use <a asp-action="BulkImport">Bulk Import</a> or add records via an operator's profile page.</div>
+}
+else
+{
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Operator</th>
+                <th>Status</th>
+                <th>Certifications</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var op in Model.Operators)
+            {
+                var rowClass = op.OverallColor switch
+                {
+                    ComplianceColor.Red    => "table-danger",
+                    ComplianceColor.Yellow => "table-warning",
+                    _                      => ""
+                };
+                var badge = op.OverallColor switch
+                {
+                    ComplianceColor.Red    => "bg-danger",
+                    ComplianceColor.Yellow => "bg-warning text-dark",
+                    _                      => "bg-success"
+                };
+                var label = op.OverallColor switch
+                {
+                    ComplianceColor.Red    => "🔴 Non-Compliant",
+                    ComplianceColor.Yellow => "🟡 Expiring Soon",
+                    _                      => "🟢 Compliant"
+                };
+                <tr class="@rowClass">
+                    <td><strong>@op.OperatorName</strong></td>
+                    <td><span class="badge @badge">@label</span></td>
+                    <td>
+                        @foreach (var cert in op.Certs)
+                        {
+                            <span class="badge @cert.BadgeClass me-1" title="Expires: @cert.ExpiryDate.ToString("yyyy-MM-dd")">
+                                @cert.CertTypeName — @cert.StatusLabel
+                            </span>
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="OperatorProfile" asp-route-name="@op.OperatorName"
+                           class="btn btn-sm btn-outline-primary">View Profile</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
