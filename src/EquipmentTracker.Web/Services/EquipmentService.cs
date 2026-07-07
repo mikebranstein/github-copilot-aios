@@ -33,7 +33,7 @@ public class EquipmentService : IEquipmentService
         return item;
     }
 
-    public bool Checkout(int itemId, string borrowerName)
+    public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null)
     {
         var item = GetItem(itemId);
         if (item is null || !item.IsAvailable)
@@ -46,6 +46,7 @@ public class EquipmentService : IEquipmentService
             Id = _nextRecordId++,
             EquipmentItemId = itemId,
             BorrowerName = borrowerName,
+            BorrowerUserId = borrowerUserId,
             CheckedOutAtUtc = DateTime.UtcNow
         });
 

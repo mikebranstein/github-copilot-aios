@@ -1,0 +1,47 @@
+@model EquipmentTracker.Web.ViewModels.EquipmentDetailViewModel
+@{
+    ViewData["Title"] = Model.Name;
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2">
+    <a asp-action="Index" class="btn btn-outline-secondary mb-3" style="min-height: 44px;">
+        &larr; Back to Catalog
+    </a>
+
+    <h2>@Model.Name</h2>
+    <p class="text-muted">@Model.Category</p>
+
+    @{
+        var badgeClass = Model.Status switch
+        {
+            EquipmentTracker.Web.ViewModels.EquipmentStatus.Available => "bg-success",
+            EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut => "bg-warning text-dark",
+            EquipmentTracker.Web.ViewModels.EquipmentStatus.Overdue => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+    <span class="badge @badgeClass fs-6 mb-4">@Model.Status.ToString()</span>
+
+    <div class="card">
+        <div class="card-body">
+            @if (Model.BorrowerName is not null)
+            {
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Checked out by</dt>
+                    <dd class="col-sm-8">@Model.BorrowerName</dd>
+
+                    <dt class="col-sm-4">Checked out at</dt>
+                    <dd class="col-sm-8">@(Model.CheckedOutAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—") UTC</dd>
+
+                    <dt class="col-sm-4">Due by</dt>
+                    <dd class="col-sm-8">@(Model.DueDateUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—") UTC</dd>
+                </dl>
+            }
+            else
+            {
+                <p class="mb-0 text-muted">No active checkout.</p>
+            }
+        </div>
+    </div>
+</div>

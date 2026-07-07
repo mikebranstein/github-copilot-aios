@@ -9,7 +9,7 @@ public interface IEquipmentService
     EquipmentItem CreateItem(string name, string category);
 
     /// <summary>Returns false if the item does not exist or is already checked out.</summary>
-    bool Checkout(int itemId, string borrowerName);
+    bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null);
 
     /// <summary>Returns false if the item does not exist or is already available.</summary>
     bool Return(int itemId);
