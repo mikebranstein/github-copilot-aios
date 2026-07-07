@@ -46,6 +46,7 @@ public class ApprovalService : IApprovalService
 
     public bool Approve(int requestId, int coordinatorId)
     {
+        ApprovalRequest? approvedRequest = null;
         lock (_lock)
         {
             var request = _requests.FirstOrDefault(r => r.Id == requestId);
@@ -63,12 +64,25 @@ public class ApprovalService : IApprovalService
 
             // Write immutable audit log entry (AC-6)
             AppendAuditEntry(request, AuditDecision.Approved, approverId: coordinatorId);
-            return true;
+
+            approvedRequest = request;
         }
+
+        // AC-5: Notify the requestor that their approval request was approved (outside lock to avoid holding lock during I/O)
+        var requestor = _userService.GetById(approvedRequest.RequestingUserId);
+        if (requestor is not null)
+        {
+            _ = _pushNotificationService.SendAsync(requestor,
+                "Checkout Request Approved",
+                "Your equipment checkout request has been approved. You may proceed with the checkout.");
+        }
+
+        return true;
     }
 
     public bool Deny(int requestId, int coordinatorId, string? reason)
     {
+        ApprovalRequest? deniedRequest = null;
         lock (_lock)
         {
             var request = _requests.FirstOrDefault(r => r.Id == requestId);
@@ -94,8 +108,20 @@ public class ApprovalService : IApprovalService
 
             // Write immutable audit log entry (AC-6)
             AppendAuditEntry(request, AuditDecision.Denied, approverId: coordinatorId, denialReason: reason);
-            return true;
+
+            deniedRequest = request;
         }
+
+        // AC-5: Notify the requestor that their approval request was denied, including the reason (outside lock)
+        var requestorForDeny = _userService.GetById(deniedRequest.RequestingUserId);
+        if (requestorForDeny is not null)
+        {
+            _ = _pushNotificationService.SendAsync(requestorForDeny,
+                "Checkout Request Denied",
+                $"Your equipment checkout request was denied. Reason: {deniedRequest.DenialReason}");
+        }
+
+        return true;
     }
 
     public void AutoApproveExpired(TimeSpan timeout)

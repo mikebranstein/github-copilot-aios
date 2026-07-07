@@ -339,6 +339,66 @@ public class AC4_SingleScreenApproveOrDenyTests
 }
 
 // =============================================================================
+// AC-5: Requestor Notification on Approval or Denial Decision
+// =============================================================================
+public class AC5_RequestorNotificationTests
+{
+    [Fact]
+    public async Task AC5_Approve_SendsPushNotificationToRequestor()
+    {
+        var (svc, equipSvc, pushSvc, _) = ApprovalTestFactory.Create();
+        var item = equipSvc.GetAllItems().First();
+
+        equipSvc.Checkout(item.Id, "Alice", borrowerUserId: 1);
+        var checkoutRecord = equipSvc.GetActiveCheckoutRecord(item.Id);
+        var request = await svc.CreateRestrictedRequestAsync(
+            checkoutRecordId: checkoutRecord!.Id, requestingUserId: 1,
+            equipmentItemId: item.Id, approverUserId: 2, delegateApproverId: null,
+            equipmentName: item.Name, requestorName: "Alice");
+
+        // Clear notifications from creation so we only see the approval notification
+        pushSvc.Sent.Clear();
+
+        var approved = svc.Approve(request.Id, coordinatorId: 2);
+
+        Assert.True(approved);
+        // AC-5: exactly one notification must be sent to the requestor (user 1)
+        Assert.Single(pushSvc.Sent);
+        var (recipient, title, body) = pushSvc.Sent[0];
+        Assert.Equal(1, recipient.Id); // Requestor, not the coordinator
+        Assert.Contains("Approved", title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task AC5_Deny_SendsPushNotificationToRequestorWithReason()
+    {
+        var (svc, equipSvc, pushSvc, _) = ApprovalTestFactory.Create();
+        var item = equipSvc.GetAllItems().First();
+
+        equipSvc.Checkout(item.Id, "Bob", borrowerUserId: 1);
+        var checkoutRecord = equipSvc.GetActiveCheckoutRecord(item.Id);
+        var request = await svc.CreateRestrictedRequestAsync(
+            checkoutRecordId: checkoutRecord!.Id, requestingUserId: 1,
+            equipmentItemId: item.Id, approverUserId: 2, delegateApproverId: null,
+            equipmentName: item.Name, requestorName: "Bob");
+
+        // Clear notifications from creation so we only see the denial notification
+        pushSvc.Sent.Clear();
+
+        const string denialReason = "Not certified for this equipment type";
+        var denied = svc.Deny(request.Id, coordinatorId: 2, reason: denialReason);
+
+        Assert.True(denied);
+        // AC-5: exactly one notification must be sent to the requestor (user 1) with the denial reason
+        Assert.Single(pushSvc.Sent);
+        var (recipient, title, body) = pushSvc.Sent[0];
+        Assert.Equal(1, recipient.Id); // Requestor receives the decision
+        Assert.Contains("Denied", title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(denialReason, body); // Reason must be included in the notification body
+    }
+}
+
+// =============================================================================
 // AC-6: Immutable Audit Trail (TS-2, TS-4)
 // =============================================================================
 public class AC6_ImmutableAuditTrailTests
