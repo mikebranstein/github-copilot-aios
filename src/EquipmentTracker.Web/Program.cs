@@ -25,6 +25,10 @@ builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
 // Offline sync service (Issue #41)
 builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 
+// Waitlist service (Issue #57)
+builder.Services.AddSingleton<IWaitlistService, WaitlistService>();
+builder.Services.AddHostedService<QueueConfirmationExpiryJob>();
+
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 

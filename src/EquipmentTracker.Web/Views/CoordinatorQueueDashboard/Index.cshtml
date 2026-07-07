@@ -1,0 +1,44 @@
+@using System.Linq
+@using EquipmentTracker.Web.Models
+@using EquipmentTracker.Web.Services
+@{
+    ViewData["Title"] = "Queue Dashboard";
+    var queues = ViewBag.Queues as List<(int EquipmentItemId, List<WaitlistEntry> Queue)> ?? new List<(int EquipmentItemId, List<WaitlistEntry> Queue)>();
+    var equipmentService = ViewBag.EquipmentService as IEquipmentService;
+}
+
+<h2 class="h4 mb-3">Coordinator queue dashboard</h2>
+
+@if (!queues.Any())
+{
+    <div class="alert alert-light border">No active queues right now.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Equipment</th>
+                    <th>Waiting</th>
+                    <th>Next up</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var queue in queues)
+                {
+                    var item = equipmentService?.GetItem(queue.EquipmentItemId);
+                    <tr>
+                        <td>@item?.Name</td>
+                        <td>@queue.Queue.Count</td>
+                        <td>@queue.Queue.FirstOrDefault()?.BorrowerName</td>
+                        <td>
+                            <a asp-action="Detail" asp-route-equipmentItemId="@queue.EquipmentItemId" class="btn btn-sm btn-outline-primary">View details</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

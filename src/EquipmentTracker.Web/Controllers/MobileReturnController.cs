@@ -2,6 +2,7 @@ using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 
 namespace EquipmentTracker.Web.Controllers;
@@ -64,7 +65,7 @@ public class MobileReturnController : Controller
     // POST /mobile/return/confirm
     [HttpPost("confirm")]
     [ValidateAntiForgeryToken]
-    public IActionResult ConfirmPost([FromForm] int itemId, [FromForm] string? returnConditionNote)
+    public async Task<IActionResult> ConfirmPost([FromForm] int itemId, [FromForm] string? returnConditionNote)
     {
         var item = _equipmentService.GetItem(itemId);
         if (item is null) return NotFound();
@@ -125,6 +126,17 @@ public class MobileReturnController : Controller
             };
             Response.StatusCode = 409;
             return View("Confirm", vm);
+        }
+
+        try
+        {
+            var waitlistService = HttpContext.RequestServices.GetService<IWaitlistService>();
+            if (waitlistService is not null)
+                await waitlistService.AdvanceQueueAsync(itemId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to advance waitlist queue for item {ItemId} after return.", itemId);
         }
 
         _logger.LogInformation("Item {ItemId} returned by user {User}.", itemId,
