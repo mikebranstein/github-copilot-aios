@@ -1,0 +1,144 @@
+@model EquipmentTracker.Web.ViewModels.CalendarViewModel
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Equipment Reservation Calendar";
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    // Build list of days in view window
+    var days = new List<DateOnly>();
+    for (var d = Model.From; d <= Model.To; d = d.AddDays(1)) days.Add(d);
+    // Project colours (cycle through a palette)
+    var palette = new[] { "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948", "#b07aa1", "#ff9da7" };
+    var projects = Model.Reservations.Select(r => r.ProjectName).Distinct().ToList();
+    var projectColour = projects.Select((p, i) => (p, palette[i % palette.Length])).ToDictionary(x => x.p, x => x.Item2);
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1>📅 Equipment Reservation Calendar</h1>
+        <div class="d-flex gap-2">
+            <a asp-action="Create" class="btn btn-primary btn-sm">+ New Reservation</a>
+            <a asp-action="CrossSite" class="btn btn-outline-info btn-sm">🗺 Cross-Site View</a>
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">My Reservations</a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form asp-action="Calendar" method="get" class="row g-2 mb-3">
+        <div class="col-md-2">
+            <label class="form-label">From</label>
+            <input type="date" name="from" class="form-control form-control-sm" value="@Model.From.ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">To</label>
+            <input type="date" name="to" class="form-control form-control-sm" value="@Model.To.ToString("yyyy-MM-dd")"
+                   max="@DateOnly.FromDateTime(DateTime.Today.AddDays(90)).ToString("yyyy-MM-dd")" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Site</label>
+            <select name="siteId" class="form-select form-select-sm">
+                <option value="">All Sites</option>
+                @foreach (var site in Model.AvailableSites)
+                {
+                    if (Model.FilterSiteId == site.SiteId)
+                    {
+                        <option value="@site.SiteId" selected>@site.SiteName</option>
+                    }
+                    else
+                    {
+                        <option value="@site.SiteId">@site.SiteName</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Project</label>
+            <select name="projectId" class="form-select form-select-sm">
+                <option value="">All Projects</option>
+                @foreach (var project in Model.AvailableProjects)
+                {
+                    if (Model.FilterProjectId == project.Id)
+                    {
+                        <option value="@project.Id" selected>@project.Name</option>
+                    }
+                    else
+                    {
+                        <option value="@project.Id">@project.Name</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-outline-primary btn-sm w-100">Apply</button>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <a asp-action="Calendar" class="btn btn-outline-secondary btn-sm w-100">Reset</a>
+        </div>
+    </form>
+
+    @if (!Model.EquipmentRows.Any())
+    {
+        <div class="alert alert-info">No reservations found for the selected filters and date window.</div>
+    }
+    else
+    {
+        <!-- Timeline calendar table -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm" style="min-width: 900px;" aria-label="Reservation Calendar">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th style="min-width:180px;">Equipment</th>
+                        @foreach (var day in days)
+                        {
+                            <th class="text-center small @(day == today ? "table-warning" : "")"
+                                style="min-width:38px; padding:2px;">
+                                <div>@day.ToString("d")</div>
+                                <div class="text-muted" style="font-size:0.65rem;">@day.ToString("ddd")</div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.EquipmentRows)
+                    {
+                        <tr>
+                            <td class="fw-semibold small">
+                                @row.EquipmentName
+                                <div class="text-muted" style="font-size:0.7rem;">@row.Category</div>
+                            </td>
+                            @foreach (var day in days)
+                            {
+                                var reservation = row.Reservations.FirstOrDefault(r => r.StartDate <= day && r.EndDate >= day);
+                                if (reservation != null)
+                                {
+                                    var colour = projectColour.ContainsKey(reservation.ProjectName) ? projectColour[reservation.ProjectName] : "#999";
+                                    <td style="background-color:@colour; color:#fff; font-size:0.65rem; padding:2px 3px;"
+                                        title="@reservation.ProjectName (@reservation.StartDate.ToString("MMM d") – @reservation.EndDate.ToString("MMM d"))">
+                                        @if (reservation.StartDate == day)
+                                        {
+                                            <a asp-action="Details" asp-route-id="@reservation.Id"
+                                               style="color:#fff; text-decoration:underline dotted;">
+                                                @reservation.ProjectName.Substring(0, Math.Min(8, reservation.ProjectName.Length))…
+                                            </a>
+                                        }
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td class="@(day == today ? "table-warning" : "")"></td>
+                                }
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Colour legend -->
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            @foreach (var kv in projectColour)
+            {
+                <span class="badge" style="background-color:@kv.Value;">@kv.Key</span>
+            }
+        </div>
+    }
+</div>

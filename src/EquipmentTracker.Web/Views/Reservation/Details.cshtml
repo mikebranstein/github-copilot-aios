@@ -1,0 +1,101 @@
+@model EquipmentTracker.Web.ViewModels.ReservationDetailsViewModel
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Reservation Details";
+}
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Reservation Details</h1>
+        <a asp-action="Index" class="btn btn-outline-secondary">← Back to My Reservations</a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header fw-bold">
+            @Model.Reservation.EquipmentName
+            @if (Model.Reservation.Status == ReservationStatus.Active)
+            {
+                <span class="badge bg-success ms-2">Active</span>
+            }
+            else if (Model.Reservation.Status == ReservationStatus.Cancelled)
+            {
+                <span class="badge bg-secondary ms-2">Cancelled</span>
+            }
+            else
+            {
+                <span class="badge bg-danger ms-2">Overridden</span>
+            }
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Project</dt>
+                <dd class="col-sm-9">@Model.Reservation.ProjectName</dd>
+
+                <dt class="col-sm-3">Equipment</dt>
+                <dd class="col-sm-9">@Model.Reservation.EquipmentName (@Model.Reservation.EquipmentCategory)</dd>
+
+                <dt class="col-sm-3">Site</dt>
+                <dd class="col-sm-9">@Model.Reservation.SiteName</dd>
+
+                <dt class="col-sm-3">Reserved Dates</dt>
+                <dd class="col-sm-9">
+                    @Model.Reservation.StartDate.ToString("MMM d, yyyy") – @Model.Reservation.EndDate.ToString("MMM d, yyyy")
+                    <span class="text-muted">((@((Model.Reservation.EndDate.DayNumber - Model.Reservation.StartDate.DayNumber + 1)) days))</span>
+                </dd>
+
+                <dt class="col-sm-3">Created By</dt>
+                <dd class="col-sm-9">@Model.Reservation.CreatedByUserName</dd>
+
+                <dt class="col-sm-3">Created At</dt>
+                <dd class="col-sm-9">@Model.Reservation.CreatedAt.ToString("MMM d, yyyy h:mm tt") UTC</dd>
+
+                @if (Model.Reservation.CancelledAt.HasValue)
+                {
+                    <dt class="col-sm-3">Cancelled At</dt>
+                    <dd class="col-sm-9">@Model.Reservation.CancelledAt.Value.ToString("MMM d, yyyy h:mm tt") UTC</dd>
+                }
+            </dl>
+        </div>
+    </div>
+
+    @if (Model.Project != null)
+    {
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Project Details</div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Project Name</dt>
+                    <dd class="col-sm-9">@Model.Project.Name</dd>
+
+                    <dt class="col-sm-3">Project Dates</dt>
+                    <dd class="col-sm-9">@Model.Project.StartDate.ToString("MMM d") – @Model.Project.EndDate.ToString("MMM d, yyyy")</dd>
+
+                    <dt class="col-sm-3">Site</dt>
+                    <dd class="col-sm-9">@Model.Project.SiteName</dd>
+
+                    <dt class="col-sm-3">Owner</dt>
+                    <dd class="col-sm-9">@Model.Project.OwnerName</dd>
+                </dl>
+            </div>
+        </div>
+    }
+
+    @if (Model.CanEdit || Model.CanCancel)
+    {
+        <div class="d-flex gap-2">
+            @if (Model.CanEdit)
+            {
+                <a asp-action="Edit" asp-route-id="@Model.Reservation.Id" class="btn btn-outline-primary">Edit Reservation</a>
+            }
+            @if (Model.CanCancel)
+            {
+                <form asp-action="Cancel" method="post"
+                      onsubmit="return confirm('Cancel this reservation? This cannot be undone.');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Reservation.Id" />
+                    <button type="submit" class="btn btn-danger">Cancel Reservation</button>
+                </form>
+            }
+        </div>
+    }
+</div>

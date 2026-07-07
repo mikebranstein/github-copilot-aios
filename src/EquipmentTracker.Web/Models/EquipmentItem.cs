@@ -8,5 +8,6 @@ public class EquipmentItem
     public bool IsAvailable { get; set; } = true;
     public EquipmentStatus Status { get; set; } = EquipmentStatus.Available;
     public int? SiteId { get; set; }
+    public string SiteName { get; set; } = string.Empty;
     public DateTime LastUpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }

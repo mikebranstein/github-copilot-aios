@@ -24,6 +24,11 @@ builder.Services.AddSingleton<ICertificationService, CertificationService>();
 builder.Services.AddSingleton<IWaitlistService, WaitlistService>();
 builder.Services.AddHostedService<QueueConfirmationExpiryJob>();
 
+// Reservation & scheduling calendar (Issue #123)
+builder.Services.AddSingleton<IReservationNotificationService, ReservationNotificationService>();
+builder.Services.AddSingleton<IReservationService, ReservationService>();
+
+// Photo-backed checkout & return (Issue #58)
 builder.Services.AddSingleton<ICameraService, MobileCameraService>();
 builder.Services.AddSingleton<IPhotoStorageService, LocalPhotoStorageService>();
 builder.Services.AddSingleton<IPhotoSyncService, PhotoSyncService>();
