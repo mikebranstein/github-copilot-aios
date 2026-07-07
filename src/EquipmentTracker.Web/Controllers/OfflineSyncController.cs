@@ -7,10 +7,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EquipmentTracker.Web.Controllers;
 
-/// <summary>
-/// Provides offline-sync API endpoints consumed by the service worker and client JS.
-/// All endpoints require authentication (cookie auth).
-/// </summary>
 [Authorize]
 [Route("api/offline")]
 [ApiController]
@@ -25,20 +21,12 @@ public class OfflineSyncController : Controller
         _equipmentService = equipmentService;
     }
 
-    // ── POST /api/offline/sync ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Accepts a batch of offline transactions, processes them chronologically,
-    /// and returns per-transaction results.
-    /// </summary>
     [HttpPost("sync")]
     public IActionResult Sync([FromBody] List<OfflineSyncTransaction> transactions)
     {
         if (transactions is null || transactions.Count == 0)
             return BadRequest(new { error = "No transactions provided." });
 
-        // Risk 4 (MEDIUM): validate that BorrowerUserId matches requesting user (or coordinator).
-        // Actual validation is performed inside OfflineSyncService.ProcessBatch().
         int userId = GetCurrentUserId();
         if (userId <= 0)
             return Unauthorized();
@@ -47,11 +35,6 @@ public class OfflineSyncController : Controller
         return Ok(results);
     }
 
-    // ── GET /api/offline/sync-status/{deviceTransactionId} ───────────────────
-
-    /// <summary>
-    /// Risk 5 (LOW): Returns the sync result for a specific device transaction ID.
-    /// </summary>
     [HttpGet("sync-status/{deviceTransactionId}")]
     public IActionResult SyncStatus(string deviceTransactionId)
     {
@@ -65,13 +48,6 @@ public class OfflineSyncController : Controller
         return Ok(result);
     }
 
-    // ── GET /api/offline/catalog-snapshot ────────────────────────────────────
-
-    /// <summary>
-    /// Returns all equipment items as a JSON snapshot for offline catalog caching.
-    /// AC2: Service Worker caches this response. Includes a "generatedAt" field so
-    /// the client can show "As of [timestamp]" and warn if cache is >24 h old.
-    /// </summary>
     [HttpGet("catalog-snapshot")]
     public IActionResult CatalogSnapshot()
     {
@@ -84,14 +60,14 @@ public class OfflineSyncController : Controller
                 Id = i.Id,
                 Name = i.Name,
                 Category = i.Category,
-                Status = i.IsAvailable ? EquipmentStatus.Available : EquipmentStatus.CheckedOut
+                Status = i.IsAvailable
+                    ? EquipmentTracker.Web.ViewModels.EquipmentStatus.Available
+                    : EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut
             }).ToList()
         };
 
         return Ok(snapshot);
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private int GetCurrentUserId()
     {

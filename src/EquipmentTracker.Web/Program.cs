@@ -3,41 +3,32 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Equipment service (existing)
 builder.Services.AddSingleton<IEquipmentService, EquipmentService>();
+builder.Services.AddSingleton<ISiteService, SiteService>();
 
-// Auth and user services
 builder.Services.AddSingleton<IUserService, UserService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 builder.Services.AddSingleton<IPushNotificationService, WebPushService>();
 
-// Coordinator notification service (in-memory, singleton)
 builder.Services.AddSingleton<ICoordinatorNotificationService, CoordinatorNotificationService>();
 
-// Approval, audit, and bulk checkout services (Issue #40)
 builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
 builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
 
-// Offline sync service (Issue #41)
 builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 
-// Waitlist service (Issue #57)
 builder.Services.AddSingleton<IWaitlistService, WaitlistService>();
 builder.Services.AddHostedService<QueueConfirmationExpiryJob>();
 
-// Photo-backed checkout & return (Issue #58)
 builder.Services.AddSingleton<ICameraService, MobileCameraService>();
 builder.Services.AddSingleton<IPhotoStorageService, LocalPhotoStorageService>();
 builder.Services.AddSingleton<IPhotoSyncService, PhotoSyncService>();
 
-// Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 
-// Cookie authentication with 7-day sliding session
 var sessionExpiryDays = builder.Configuration.GetValue<int>("Auth:SessionExpiryDays", 7);
 if (sessionExpiryDays <= 0) sessionExpiryDays = 7;
 
@@ -52,7 +43,6 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");

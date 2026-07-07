@@ -24,34 +24,31 @@
     </div>
 }
 
-<div class="mb-3">
+<div class="mb-3 d-flex flex-wrap gap-2">
     <a asp-action="Create" class="btn btn-primary">+ Add Equipment</a>
+    <a asp-controller="Availability" asp-action="Index" class="btn btn-outline-secondary">Availability View</a>
 </div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model.Items)
-        {
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
             <tr>
-                <td>@item.Name</td>
-                <td>@item.Category</td>
-                <td>
-                    @if (item.IsAvailable)
-                    {
-                        <span class="badge bg-success">Available</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-warning text-dark">Checked Out</span>
-
+                <th>Name</th>
+                <th>Category</th>
+                <th>Site</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Items)
+            {
+                <tr>
+                    <td>@item.Name</td>
+                    <td>@item.Category</td>
+                    <td>@(item.SiteName ?? "Unassigned")</td>
+                    <td>
+                        <span class="badge @item.StatusBadgeClass">@item.StatusDisplay</span>
                         @if (item.IsOverdue)
                         {
                             <span class="badge bg-danger ms-1"
@@ -61,30 +58,29 @@
                                 Overdue
                             </span>
                         }
-                    }
-                </td>
-                <td>
-                    @if (item.IsAvailable)
-                    {
-                        <a asp-action="Checkout" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Check Out</a>
-                    }
-                    else
-                    {
-                        <form asp-action="Return" asp-route-id="@item.Id" method="post" style="display:inline;">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">Return</button>
-                        </form>
-                    }
-                    <a asp-action="History" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info ms-1">History</a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>
+                    </td>
+                    <td>
+                        @if (item.IsAvailable)
+                        {
+                            <a asp-action="Checkout" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">Check Out</a>
+                        }
+                        else
+                        {
+                            <form asp-action="Return" asp-route-id="@item.Id" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Return</button>
+                            </form>
+                        }
+                        <a asp-action="History" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info ms-1">History</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
 
 @section Scripts {
     <script>
-        // Initialise Bootstrap tooltips on the overdue badges
         document.addEventListener('DOMContentLoaded', function () {
             var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
