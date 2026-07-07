@@ -43,11 +43,42 @@ For the first unprocessed CHAMPION opportunity found, route as follows:
    - If feature-request exists, skip to the next opportunity
    - Otherwise: this is unprocessed; route it to PO agent
 
-3. For the unprocessed CHAMPION opportunity:
+3. **Detect orphaned strategic-opportunities** (no pm-* labels):
+   ```bash
+   # Find all strategic-opportunity issues with NO pm-opportunity/pm-deferred/pm-blocked labels
+   ORPHANS=$(gh issue list --state open --search 'type:issue label:strategic-opportunity' \
+     --json number --jq '.[] | .number' | while read ISSUE; do
+     LABELS=$(gh issue view $ISSUE --json labels --jq '.labels[].name | select(startswith("pm-"))')
+     if [ -z "$LABELS" ]; then
+       echo $ISSUE
+     fi
+   done)
+   
+   for ISSUE in $ORPHANS; do
+     gh issue comment $ISSUE --body "⚠️ ORPHAN: Strategic-opportunity has no pm-* label (pm-opportunity/pm-deferred/pm-blocked). Awaiting classification."
+   done
+   ```
+   - **Why:** Orphaned issues without labels don't flow through PO orchestrator; they're silent data quality issues
+   - **Action:** Alert for manual HITL classification
+
+4. **Detect stale ready states** (error detection):
+   ```bash
+   # Find issues with BOTH pm-opportunity AND po-prioritized labels (shouldn't both exist)
+   STALE=$(gh issue list --label pm-opportunity --label po-prioritized --state open \
+     --json number --jq '.[] | .number')
+   
+   for ISSUE in $STALE; do
+     gh issue comment $ISSUE --body "🔴 ERROR: Issue has both pm-opportunity and po-prioritized labels. This indicates PO agent may have failed to close strategic-opportunity after creating feature-request. Investigate."
+   done
+   ```
+   - **Why:** If feature-request was successfully created, strategic-opportunity should be CLOSED
+   - **Action:** Alert for manual investigation; indicates PO agent error or failed close
+
+5. For the unprocessed CHAMPION opportunity (from step 2):
    - Post a routing decision comment: "PO agent starting prioritization and backlog positioning for this opportunity..."
    - Spawn the PO agent task: `task(description="Prioritize and create feature-request for strategic-opportunity #N", agent_id="product-owner")`
 
-4. Wait for the spawned task to complete. The PO agent will:
+6. Wait for the spawned task to complete. The PO agent will:
    - Read the strategic-opportunity (PM research findings, validation, CHAMPION decision)
    - Ask clarifying questions if needed (in comments)
    - Assess: user value, business value, technical complexity
@@ -61,17 +92,20 @@ For the first unprocessed CHAMPION opportunity found, route as follows:
    - Apply label: `po-prioritized`
    - Move issue to "Ready for Development" column in Projects board (or add to project with "Ready for Development" status)
    - Link back to the strategic-opportunity issue
+   - **Close the strategic-opportunity** issue with comment: "Strategic planning complete. PO prioritized and created feature-request. See feature-request #N"
 
-5. Output cycle summary:
+7. Output cycle summary:
    ```
    --- Orchestrator PO Cycle Summary (Cycle N) ---
    Model: [your active model]
    Strategic-opportunity prioritized: #N [TITLE] -> Priority Score: [X.X] (QUICK_WIN/STRATEGIC_BET/BACKLOG)
    feature-requests created and moved to "Ready for Development": X
    Strategic-opportunities awaiting prioritization: Y
+   Orphaned strategic-opportunities detected: Z
+   Stale ready states detected: W
    ```
 
-6. Wait 30 seconds, then go back to step 1 (check for next unprocessed opportunity, start next cycle).
+8. Wait 30 seconds, then go back to step 1 (check for next unprocessed opportunity, start next cycle).
    ```bash
    sleep 30
    ```
@@ -84,6 +118,60 @@ For the first unprocessed CHAMPION opportunity found, route as follows:
 - `pm-opportunity` — Created by PM; CHAMPION decision ready for PO
 - `po-prioritized` — PO has prioritized this opportunity and created feature-request
 - `blocked-on` — Feature is blocked by dependency; includes reference to blocking issue
+
+---
+
+## Quality Gates & Edge Case Handling
+
+### Orphaned Strategic-Opportunity Detection
+- **What:** Strategic-opportunity issues with NO pm-* labels
+- **Why:** Indicates data quality issue; these issues don't flow through orchestrator
+- **Action:** Orchestrator alerts in each cycle for manual HITL classification
+- **Fix:** Human classifies: Add pm-opportunity (ready for PO), pm-deferred (quarterly review), or pm-blocked (archived)
+
+### Stale Ready State Detection
+- **What:** Issues with BOTH pm-opportunity AND po-prioritized labels simultaneously
+- **Why:** Indicates PO agent may have failed to close strategic-opportunity after creating feature-request
+- **Action:** Orchestrator alerts in each cycle for manual investigation
+- **Fix:** Either close strategic-opportunity properly, or debug PO agent failure
+
+### Priority Score Validation (Development Gate)
+- **What:** Every feature-request in "Ready for Development" must have Priority Score
+- **Why:** Dev orchestrator uses score to determine pull order; missing scores make ordering non-deterministic
+- **Action:** Dev orchestrator alerts PO when feature-request missing Priority Score; doesn't pull until fixed
+- **Fix:** PO adds Priority Score in format `Priority Score: X.X` to issue body
+
+### Blocked Dependency Resolution (Development Gate)
+- **What:** Feature-requests with blocked-on label are automatically rechecked each cycle
+- **Why:** Dependency may resolve; blocked feature can then proceed
+- **Action:** Dev orchestrator checks blocking issue status; removes blocked-on if blocker is CLOSED
+- **Fix:** Automatic—orchestrator handles; feature re-enters queue when dependency resolved
+
+---
+
+## Issue Lifecycle: Strategic-Opportunity → Feature-Request
+
+**Strategic-Opportunity Lifecycle:**
+- **Created by:** PM (after CHAMPION validation)
+- **Labeled:** `pm-opportunity`
+- **Status:** OPEN (awaiting PO prioritization)
+- **Action:** PO reads, asks clarifying questions, creates feature-request
+- **Closed by:** PO (after feature-request successfully created)
+- **Closure reason:** "completed"
+- **Closure comment:** "Strategic planning complete. Prioritized and created feature-request #N for development backlog."
+
+**Feature-Request Lifecycle:**
+- **Created by:** PO (after strategic-opportunity evaluation)
+- **Labeled:** `po-prioritized`
+- **Status:** OPEN (in "Ready for Development" column)
+- **Action:** Development Orchestrator pulls from "Ready for Development", routes through build pipeline
+- **Closed by:** Release Agent (after feature ships to production)
+
+**Why close strategic-opportunity?**
+- Signals handoff: Research phase complete → Development phase begins
+- Prevents PM from tracking closed loops (clean dashboard)
+- Clear accountability: PO owns closure, ensures feature-request is properly created
+- Audit trail: GitHub close comment links to feature-request for full traceability
 
 ---
 

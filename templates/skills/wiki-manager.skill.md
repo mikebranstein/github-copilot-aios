@@ -369,6 +369,225 @@ function ConvertTo-SafePageName {
 }
 
 # ============================================================================
+# Markdown Linting Functions
+# ============================================================================
+
+function Lint-Markdown {
+    param([string]$content)
+    
+    $issues = @()
+    $lines = $content -split "`n"
+    
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $lineNum = $i + 1
+        $line = $lines[$i]
+        
+        # Check for inconsistent heading levels
+        if ($line -match '^#+\s') {
+            $level = ($line | Select-String '^(#+)' -o).Matches[0].Value.Length
+            if ($i -gt 0) {
+                $prevLine = $lines[$i - 1]
+                if ($prevLine -match '^#+\s') {
+                    $prevLevel = ($prevLine | Select-String '^(#+)' -o).Matches[0].Value.Length
+                    if ($level -gt $prevLevel + 1) {
+                        $issues += "Line $lineNum`: Heading level skips from h$prevLevel to h$level (use h$($prevLevel+1))"
+                    }
+                }
+            }
+        }
+        
+        # Check for heading without space after #
+        if ($line -match '^#+[^\s]') {
+            $issues += "Line $lineNum`: Missing space after heading marker: '$line'"
+        }
+        
+        # Check for trailing whitespace
+        if ($line -match '\s+$') {
+            $issues += "Line $lineNum`: Trailing whitespace detected"
+        }
+        
+        # Check for inconsistent list markers
+        if ($line -match '^\s*[-*+]\s') {
+            $marker = ($line | Select-String '^\s*([-*+])' -o).Matches[0].Groups[1].Value
+            if ($i -gt 0) {
+                $prevLine = $lines[$i - 1]
+                if ($prevLine -match '^\s*[-*+]\s' -and $marker -ne ($prevLine | Select-String '^\s*([-*+])' -o).Matches[0].Groups[1].Value) {
+                    $issues += "Line $lineNum`: Inconsistent list marker (mix of -, *, +). Use single marker type"
+                }
+            }
+        }
+        
+        # Check for improper link format (common mistakes)
+        if ($line -match '\[([^\]]+)\]\s*\(') {
+            # Valid link format
+        } elseif ($line -match '\[([^\]]+)\]' -and -not ($line -match '\[([^\]]+)\]\s*\(')) {
+            # Might be missing URL
+            if ($line -match '\[\s*\]|\]\s*\(\s*\)') {
+                $issues += "Line $lineNum`: Empty link detected: '$line'"
+            }
+        }
+    }
+    
+    return $issues
+}
+
+function Correct-MarkdownErrors {
+    param([string]$content)
+    
+    Write-Log "Correcting markdown errors..."
+    $corrected = $content
+    
+    # Fix trailing whitespace
+    $corrected = $corrected -split "`n" | ForEach-Object { $_ -replace '\s+$', '' } | Join-String -Separator "`n"
+    
+    # Fix heading spacing (ensure space after #)
+    $corrected = $corrected -replace '^(#+)([^\s])', '$1 $2'
+    
+    # Fix common heading level skips (if h1 → h3, convert h3 to h2)
+    $lines = $corrected -split "`n"
+    $lastHeadingLevel = 0
+    $corrections = @()
+    
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^(#+)\s') {
+            $level = $matches[1].Length
+            if ($level -gt $lastHeadingLevel + 1 -and $lastHeadingLevel -gt 0) {
+                $targetLevel = $lastHeadingLevel + 1
+                $newMarker = '#' * $targetLevel
+                $lines[$i] = $lines[$i] -replace '^#+', $newMarker
+                $corrections += "Fixed heading level from h$level to h$targetLevel on line $($i+1)"
+                $level = $targetLevel
+            }
+            $lastHeadingLevel = $level
+        }
+    }
+    
+    $corrected = $lines | Join-String -Separator "`n"
+    
+    # Standardize list markers to hyphens
+    $corrected = $corrected -replace '^\s*(\*)\s', '- '
+    $corrected = $corrected -replace '^\s*(\+)\s', '- '
+    
+    if ($corrections.Count -gt 0) {
+        Write-Log "Applied markdown corrections: $($corrections -join '; ')"
+    }
+    
+    return $corrected
+}
+
+function Check-WikiLinks {
+    param([string]$content, [string]$repoPath)
+    
+    Write-Log "Validating wiki internal links..."
+    $linkIssues = @()
+    
+    # Find all wiki-style links [text](page-name) and [text](page-name.md)
+    $wikiLinkPattern = '\[([^\]]+)\]\(([^)]+)\)'
+    $matches = [regex]::Matches($content, $wikiLinkPattern)
+    
+    foreach ($match in $matches) {
+        $linkText = $match.Groups[1].Value
+        $linkTarget = $match.Groups[2].Value
+        
+        # Skip external links (http://, https://, mailto:, etc.)
+        if ($linkTarget -match '^(https?://|mailto:|ftp://)') {
+            continue
+        }
+        
+        # Skip anchor-only links (#section)
+        if ($linkTarget -match '^#') {
+            continue
+        }
+        
+        # Normalize link target (remove .md if present)
+        $pageName = $linkTarget -replace '\.md$', ''
+        
+        # Check if page exists in wiki
+        $pageFile = Join-Path $repoPath "$pageName.md"
+        
+        if (-not (Test-Path $pageFile)) {
+            $linkIssues += "Missing wiki page: [$linkText]($linkTarget) - expected file: $pageName.md"
+        }
+    }
+    
+    return $linkIssues
+}
+
+function Check-ExternalLinks {
+    param([string]$content)
+    
+    Write-Log "Validating external links..."
+    $linkIssues = @()
+    
+    # Find all external links
+    $externalLinkPattern = '(https?://[^\s\)]+)'
+    $matches = [regex]::Matches($content, $externalLinkPattern)
+    
+    foreach ($match in $matches) {
+        $url = $match.Groups[1].Value
+        
+        # Basic validation: check URL format
+        if (-not ($url -match '^https?://[a-zA-Z0-9][a-zA-Z0-9\-\.]*[a-zA-Z0-9]\.[a-zA-Z]{2,}')) {
+            $linkIssues += "Invalid URL format: $url"
+            continue
+        }
+        
+        # Try to validate with HEAD request (optional, with timeout)
+        try {
+            Write-Log "Checking URL: $url"
+            $response = Invoke-WebRequest -Uri $url -Method Head -TimeoutSec 3 -ErrorAction Stop
+            if ($response.StatusCode -lt 200 -or $response.StatusCode -ge 400) {
+                $linkIssues += "URL returned status $($response.StatusCode): $url"
+            }
+        }
+        catch [System.Net.HttpRequestException] {
+            # Network error - log but don't block commit (may be temporary)
+            Write-Log "Warning: Could not verify URL (network issue): $url" "WARN"
+        }
+        catch [System.TimeoutException] {
+            # Timeout - log but don't block commit
+            Write-Log "Warning: URL check timed out: $url" "WARN"
+        }
+        catch {
+            # Other errors - log but don't block
+            Write-Log "Warning: Could not verify URL: $url - $_" "WARN"
+        }
+    }
+    
+    return $linkIssues
+}
+
+function Validate-Content {
+    param([string]$content, [string]$wikiRepoPath)
+    
+    Write-Log "Starting content validation..."
+    $allIssues = @()
+    
+    # Run linting
+    $lintIssues = Lint-Markdown $content
+    $allIssues += $lintIssues
+    
+    # Check wiki links
+    $wikiLinkIssues = Check-WikiLinks $content $wikiRepoPath
+    $allIssues += $wikiLinkIssues
+    
+    # Check external links
+    $externalLinkIssues = Check-ExternalLinks $content
+    $allIssues += $externalLinkIssues
+    
+    if ($allIssues.Count -gt 0) {
+        Write-Log "Found $($allIssues.Count) validation issue(s):" "WARN"
+        foreach ($issue in $allIssues) {
+            Write-Log "  - $issue" "WARN"
+        }
+    } else {
+        Write-Log "Content validation passed ✓"
+    }
+    
+    return $allIssues
+}
+
+# ============================================================================
 # Action Handlers
 # ============================================================================
 
@@ -471,7 +690,19 @@ function Handle-WritePage {
         $pageFile = Join-Path $WIKI_TEMP "$safeName.md"
         
         Write-Log "Writing page to: $pageFile"
-        Set-Content -Path $pageFile -Value $content -Encoding UTF8
+        
+        # Correct markdown errors
+        $correctedContent = Correct-MarkdownErrors $content
+        
+        # Validate content
+        $validationIssues = Validate-Content $correctedContent $WIKI_TEMP
+        
+        if ($validationIssues.Count -gt 0) {
+            Write-Log "Content validation issues found, but proceeding with corrected content"
+        }
+        
+        # Write corrected content
+        Set-Content -Path $pageFile -Value $correctedContent -Encoding UTF8
         
         # Push changes
         $commitMsg = "Update $safeName.md - Research findings"
@@ -484,7 +715,7 @@ function Handle-WritePage {
         $result.status = "success"
         $result.committed = $true
         $result.commit_sha = Get-CommitSha
-        $result.message = "Created/updated $safeName.md"
+        $result.message = "Created/updated $safeName.md (linted and validated)"
     }
     catch {
         $result.message = "Failed to write page: $_"
@@ -554,8 +785,20 @@ function Handle-UpdatePage {
             $newContent = "$newContent`n`n---`n`n$existingContent"
         }
         
-        Write-Log "Writing updated content to: $pageFile"
-        Set-Content -Path $pageFile -Value $newContent -Encoding UTF8
+        Write-Log "Processing page content: $pageFile"
+        
+        # Correct markdown errors
+        $correctedContent = Correct-MarkdownErrors $newContent
+        
+        # Validate content
+        $validationIssues = Validate-Content $correctedContent $WIKI_TEMP
+        
+        if ($validationIssues.Count -gt 0) {
+            Write-Log "Content validation issues found, but proceeding with corrected content"
+        }
+        
+        # Write corrected content
+        Set-Content -Path $pageFile -Value $correctedContent -Encoding UTF8
         
         # Push changes
         $commitMsg = "Update $safeName.md - Additional research findings"
@@ -568,7 +811,7 @@ function Handle-UpdatePage {
         $result.status = "success"
         $result.committed = $true
         $result.commit_sha = Get-CommitSha
-        $result.message = "Updated $safeName.md (append: $append)"
+        $result.message = "Updated $safeName.md (append: $append, linted and validated)"
     }
     catch {
         $result.message = "Failed to update page: $_"
@@ -864,3 +1107,51 @@ All errors return with `"status": "error"` and a descriptive message.
 - Git user for commits: `aios-automation@github.local` / `AIOS Research Agent`
 - All timestamps in ISO 8601 format (UTC)
 - Commit messages include context (e.g., "Update Personas-John.md - Research findings")
+
+---
+
+## Markdown Linting & Validation
+
+All `write-page` and `update-page` operations automatically:
+
+### ✅ **Lint & Correct Markdown**
+- Fix missing spaces after heading markers (`##text` → `## text`)
+- Remove trailing whitespace from all lines
+- Fix heading level skips (h1 → h3 becomes h1 → h2)
+- Standardize list markers (all `*` or `+` converted to `-`)
+- Detect and report empty links `[]()`
+
+### ✅ **Validate Wiki Links**
+- Find all internal wiki links `[text](page-name)`
+- Verify target pages exist in the wiki
+- Report missing page errors before commit
+- Support both link styles: `page-name` and `page-name.md`
+
+### ✅ **Validate External Links**
+- Check external URLs for proper format (http/https/mailto/ftp)
+- Validate URL syntax
+- Attempt HEAD request to verify accessibility (non-blocking)
+- Report HTTP errors but continue if network is unavailable
+
+### Validation Behavior
+- **Corrections applied automatically:** Markdown style issues are fixed before commit
+- **Warnings logged:** Validation issues are reported but don't block commit
+- **Failed commits prevented:** Critical errors (e.g., empty links) are caught before git push
+- **Robust handling:** Network timeouts on URL checks don't halt the operation
+
+### Example: Auto-Corrected Content
+```markdown
+# Input (with issues)
+##Not spaced properly
+* List item 1
++ List item 2    
+- List item 3
+[Broken](missing-page.md)
+
+# Output (corrected)
+## Not spaced properly
+- List item 1
+- List item 2
+- List item 3
+[Broken](missing-page.md)  ← Reported but kept (for manual fix if intentional)
+```

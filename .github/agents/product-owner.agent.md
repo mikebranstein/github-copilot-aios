@@ -46,6 +46,10 @@ The Product Manager creates `strategic-opportunity` GitHub issues after validati
 4. **Create a `feature-request`** linking back to the strategic-opportunity
    - Use the template you customized in [Module 2 - Intake Quality Template](../../docs/02-module-2-intake-quality-template.md)
    - Include: Strategic context link, user story, acceptance criteria, value scores, priority position
+5. **Close the strategic-opportunity** issue:
+   - Post a final comment: "Strategic planning complete. Prioritized and created feature-request #N for development backlog."
+   - Close with reason: "completed"
+   - This signals: Strategic research phase → Development phase (PM can stop tracking this opportunity)
 
 ### Example Workflow:
 
@@ -67,7 +71,28 @@ User story: As a field manager, I want to check out equipment from my phone
 Value scores: User=5, Business=4, Complexity=4
 Priority score: (5+4)/(4*1.5) = 1.5 (Strategic bet, top 3 of backlog)
 Success metrics: 80% adoption by field users in 4 weeks
+
+[PO closes strategic-opportunity #42]
+Comment: "Strategic planning complete. Prioritized and created feature-request #89 for development backlog."
+Status: Closed (reason: completed)
 ```
+
+**Implementation Commands:**
+
+After creating the feature-request, close the strategic-opportunity:
+
+```bash
+STRATEGIC_OPP_NUMBER=42
+FEATURE_REQUEST_NUMBER=89
+
+# Post closure comment
+gh issue comment $STRATEGIC_OPP_NUMBER --body "Strategic planning complete. Prioritized and created feature-request #$FEATURE_REQUEST_NUMBER for development backlog."
+
+# Close the strategic-opportunity
+gh issue close $STRATEGIC_OPP_NUMBER --reason "completed"
+```
+
+This signals the handoff: **strategic-opportunity (PM research phase) → feature-request (Development phase)**
 
 ---
 
