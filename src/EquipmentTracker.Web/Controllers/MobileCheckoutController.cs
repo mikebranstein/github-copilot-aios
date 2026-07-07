@@ -3,6 +3,7 @@ using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 
 namespace EquipmentTracker.Web.Controllers;
@@ -22,6 +23,7 @@ public class MobileCheckoutController : Controller
     private readonly IApprovalService _approvalService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<MobileCheckoutController> _logger;
+    private readonly IPhotoStorageService? _photoStorageService;
 
     public MobileCheckoutController(
         IEquipmentService equipmentService,
@@ -30,7 +32,8 @@ public class MobileCheckoutController : Controller
         IPushNotificationService pushService,
         IApprovalService approvalService,
         IConfiguration configuration,
-        ILogger<MobileCheckoutController> logger)
+        ILogger<MobileCheckoutController> logger,
+        IPhotoStorageService? photoStorageService = null)
     {
         _equipmentService = equipmentService;
         _userService = userService;
@@ -39,6 +42,7 @@ public class MobileCheckoutController : Controller
         _approvalService = approvalService;
         _configuration = configuration;
         _logger = logger;
+        _photoStorageService = photoStorageService;
     }
 
     // GET /mobile/checkout/scan
@@ -255,5 +259,72 @@ public class MobileCheckoutController : Controller
         ViewBag.SuccessMessage = TempData["SuccessMessage"] as string
             ?? $"Checkout confirmed for item #{itemId}.";
         return View();
+    }
+
+    // ── Photo capture actions (Issue #58) ─────────────────────────────────────
+
+    // GET /mobile/checkout/capture-photo?equipmentItemId={id}
+    [HttpGet("capture-photo")]
+    public IActionResult CapturePhoto([FromQuery] int equipmentItemId)
+    {
+        var item = _equipmentService.GetItem(equipmentItemId);
+        if (item is null) return NotFound();
+
+        ViewBag.EquipmentItemId = equipmentItemId;
+        ViewBag.ItemName = item.Name;
+        return View();
+    }
+
+    // POST /mobile/checkout/save-checkout-photo
+    [HttpPost("save-checkout-photo")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveCheckoutPhoto(
+        [FromForm] int equipmentItemId,
+        [FromForm] string? photoData)
+    {
+        var storage = _photoStorageService
+            ?? HttpContext.RequestServices.GetService<IPhotoStorageService>();
+
+        if (storage is null)
+            return StatusCode(503, new { error = "Photo storage service unavailable." });
+
+        // Decode base64 photo data (from browser camera capture)
+        byte[] photoBytes;
+        if (!string.IsNullOrWhiteSpace(photoData))
+        {
+            // Strip data URL prefix if present
+            var base64 = photoData.Contains(',') ? photoData.Split(',')[1] : photoData;
+            try { photoBytes = Convert.FromBase64String(base64); }
+            catch { photoBytes = Array.Empty<byte>(); }
+        }
+        else
+        {
+            photoBytes = Array.Empty<byte>();
+        }
+
+        var uploaderName = User.FindFirstValue(ClaimTypes.Name) ?? "unknown";
+        var photoUrl = await storage.SavePhotoAsync(photoBytes, uploaderName);
+
+        // Find the active checkout record for this item
+        var record = _equipmentService.GetActiveCheckoutRecord(equipmentItemId);
+        if (record is not null)
+        {
+            await storage.AttachToCheckoutRecordAsync(record.Id, photoUrl, isReturn: false);
+        }
+
+        return Json(new { success = true, photoUrl });
+    }
+
+    // POST /mobile/checkout/skip-photo
+    [HttpPost("skip-photo")]
+    [ValidateAntiForgeryToken]
+    public IActionResult SkipPhoto([FromForm] int checkoutRecordId)
+    {
+        var record = _equipmentService.GetCheckoutRecordById(checkoutRecordId);
+        if (record is null) return NotFound();
+
+        record.ConditionPhotoSkippedAtCheckout = true;
+
+        return Json(new { success = true });
     }
 }

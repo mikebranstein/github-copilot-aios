@@ -1,0 +1,117 @@
+@model EquipmentTracker.Web.ViewModels.MobileReturnConfirmViewModel
+@{
+    ViewData["Title"] = "Capture Return Photo";
+    Layout = "_Layout";
+    var checkoutRecordId = Model.ActiveRecord?.Id ?? 0;
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">📷 Capture Return Photo</h4>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">@Model.Item.Name</h5>
+            <p class="card-text text-muted small">Document the item's condition at return.</p>
+        </div>
+    </div>
+
+    @if (Model.HasFairWitnessPhoto)
+    {
+        <!-- Fair Witness panel — shows checkout photo for comparison -->
+        <div class="card border-info mb-3">
+            <div class="card-header text-bg-info d-flex align-items-center gap-2">
+                <span>🔍 Fair Witness — Checkout Condition</span>
+            </div>
+            <div class="card-body">
+                <img src="@Model.FairWitnessPhotoUrl"
+                     class="img-fluid rounded mb-2"
+                     alt="Checkout condition photo" />
+                <p class="mb-0 small text-muted">
+                    Item: <strong>@Model.FairWitnessItemName</strong><br />
+                    Checked out: @Model.FairWitnessTimestamp?.ToString("g") UTC
+                </p>
+            </div>
+        </div>
+    }
+
+    <!-- Camera preview -->
+    <div class="mb-3 text-center">
+        <video id="camera-preview" class="rounded border w-100" style="max-height:280px;" autoplay playsinline></video>
+        <canvas id="photo-canvas" class="d-none"></canvas>
+    </div>
+
+    <div id="photo-preview-section" class="d-none mb-3 text-center">
+        <img id="photo-preview" class="rounded border w-100" style="max-height:280px;" alt="Return photo" />
+    </div>
+
+    <!-- Return photo form -->
+    <form id="return-photo-form" method="post" action="/mobile/return/save-return-photo">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="checkoutRecordId" value="@checkoutRecordId" />
+        <input type="hidden" id="photo-data" name="photoData" />
+
+        <div class="d-flex flex-column gap-2">
+            @if (Model.IsCaptureReturnPhotoButtonEnabled)
+            {
+                <button type="button" id="btn-capture" class="btn btn-primary btn-lg" style="min-height:56px;">
+                    📸 Capture Return Photo
+                </button>
+            }
+            <button type="button" id="btn-retake" class="btn btn-outline-secondary d-none" style="min-height:48px;">
+                🔄 Retake
+            </button>
+            <button type="submit" id="btn-save" class="btn btn-success btn-lg d-none" style="min-height:56px;">
+                ✅ Use This Photo
+            </button>
+        </div>
+    </form>
+
+    <a href="/mobile/return/confirm?itemId=@Model.Item.Id" class="btn btn-link mt-3">← Back to return</a>
+</div>
+
+@section Scripts {
+<script>
+    const video = document.getElementById('camera-preview');
+    const canvas = document.getElementById('photo-canvas');
+    const photoPreview = document.getElementById('photo-preview');
+    const photoPreviewSection = document.getElementById('photo-preview-section');
+    const photoDataInput = document.getElementById('photo-data');
+    const btnCapture = document.getElementById('btn-capture');
+    const btnRetake = document.getElementById('btn-retake');
+    const btnSave = document.getElementById('btn-save');
+
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
+        } catch (e) {
+            console.warn('Camera unavailable:', e);
+        }
+    }
+
+    btnCapture?.addEventListener('click', () => {
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        photoDataInput.value = dataUrl;
+        photoPreview.src = dataUrl;
+        photoPreviewSection.classList.remove('d-none');
+        video.classList.add('d-none');
+        btnCapture?.classList.add('d-none');
+        btnRetake.classList.remove('d-none');
+        btnSave.classList.remove('d-none');
+    });
+
+    btnRetake.addEventListener('click', () => {
+        photoPreviewSection.classList.add('d-none');
+        video.classList.remove('d-none');
+        btnCapture?.classList.remove('d-none');
+        btnRetake.classList.add('d-none');
+        btnSave.classList.add('d-none');
+        photoDataInput.value = '';
+    });
+
+    startCamera();
+</script>
+}
