@@ -1,0 +1,102 @@
+@model EquipmentTracker.Web.ViewModels.AvailabilityViewModel
+
+@{
+    ViewData["Title"] = "Availability";
+}
+
+<div class="container-fluid px-2 px-md-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+        <div>
+            <h2 class="mb-1">Equipment Availability</h2>
+            <p class="text-muted mb-0">Filter by site and status.</p>
+        </div>
+    </div>
+
+    <form method="get" class="card card-body mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label asp-for="SelectedSiteId" class="form-label">Site</label>
+                <select asp-for="SelectedSiteId" asp-items="Model.SiteOptions" class="form-select"></select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label asp-for="SelectedStatus" class="form-label">Status</label>
+                <select asp-for="SelectedStatus" asp-items="Model.StatusOptions" class="form-select"></select>
+            </div>
+            <div class="col-12 col-md-4 d-grid d-md-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 w-md-auto">Apply Filters</button>
+                <a asp-action="Index" class="btn btn-outline-secondary w-100 w-md-auto">Clear</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="d-md-none">
+        @if (Model.Items.Count == 0)
+        {
+            <div class="alert alert-info">No equipment matches the selected filters.</div>
+        }
+        else
+        {
+            <div class="row g-2">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="col-12">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div>
+                                        <h5 class="card-title mb-1">@item.Name</h5>
+                                        <div class="text-muted small">@item.Category</div>
+                                    </div>
+                                    <span class="badge @item.StatusBadgeClass">@item.StatusDisplay</span>
+                                </div>
+                                <dl class="row mb-0 mt-3 small">
+                                    <dt class="col-5">Site</dt>
+                                    <dd class="col-7">@(item.SiteName ?? "Unassigned")</dd>
+                                    <dt class="col-5">Last Updated</dt>
+                                    <dd class="col-7">@item.LastUpdatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="d-none d-md-block">
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Site</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No equipment matches the selected filters.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>@item.Name</td>
+                                <td>@item.Category</td>
+                                <td>@(item.SiteName ?? "Unassigned")</td>
+                                <td><span class="badge @item.StatusBadgeClass">@item.StatusDisplay</span></td>
+                                <td>@item.LastUpdatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

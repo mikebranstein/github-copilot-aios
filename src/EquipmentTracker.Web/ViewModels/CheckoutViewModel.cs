@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
 using EquipmentTracker.Web.Models;
 
@@ -12,12 +13,7 @@ public class CheckoutViewModel
     [StringLength(100)]
     public string BorrowerName { get; set; } = string.Empty;
 
-    // ── Cert enforcement fields (Issue #120) ──────────────────────────────────
-
-    /// <summary>Set when checkout is blocked by cert validation. Shown in the view.</summary>
     public string? CertBlockMessage { get; set; }
-
-    /// <summary>True when the user is re-submitting with a supervisor override.</summary>
     public bool IsOverrideAttempt { get; set; } = false;
 
     [StringLength(100)]
@@ -27,4 +23,7 @@ public class CheckoutViewModel
 
     [StringLength(500)]
     public string? OverrideReasonText { get; set; }
+    public int? ConfirmedSiteId { get; set; }
+    public string? CurrentSiteName { get; set; }
+    public IReadOnlyList<SelectListItem> SiteOptions { get; set; } = [];
 }

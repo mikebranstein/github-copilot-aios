@@ -180,7 +180,12 @@ public class OfflineSyncService : IOfflineSyncService
         // Risk 3 (MEDIUM): set OfflineTimestamp on the resulting CheckoutRecord.
         var newRecord = _equipmentService.GetActiveCheckoutRecord(tx.ItemId);
         if (newRecord is not null)
+        {
             newRecord.OfflineTimestamp = tx.OfflineTimestamp;
+            // Issue #114: propagate BatchTransactionId from offline bulk transaction
+            if (!string.IsNullOrEmpty(tx.BatchTransactionId))
+                newRecord.BatchTransactionId = tx.BatchTransactionId;
+        }
 
         return new SyncResult
         {
@@ -211,6 +216,11 @@ public class OfflineSyncService : IOfflineSyncService
                 Status = "success"
             };
         }
+
+        // Issue #114: stamp BatchTransactionId on the active checkout record before return
+        var activeReturnRecord = _equipmentService.GetActiveCheckoutRecord(tx.ItemId);
+        if (activeReturnRecord is not null && !string.IsNullOrEmpty(tx.BatchTransactionId))
+            activeReturnRecord.BatchTransactionId = tx.BatchTransactionId;
 
         bool ok = _equipmentService.Return(tx.ItemId);
         if (!ok)

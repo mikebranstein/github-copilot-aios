@@ -25,4 +25,11 @@ public class OfflineSyncTransaction
     // Added for Issue #58
     public string? PhotoLocalPath { get; set; }  // local file path before sync
     public string? PhotoUploadKey { get; set; }  // SHA-256 hash for deduplication
+
+    // Added for Issue #114 — Bulk Checkout and Return Operations for Field Teams
+    /// <summary>
+    /// Groups all items in the same offline bulk operation.
+    /// Null for single-item transactions. Preserved on sync as the BatchTransactionId on each CheckoutRecord.
+    /// </summary>
+    public string? BatchTransactionId { get; set; }
 }

@@ -2,32 +2,35 @@ using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace EquipmentTracker.Web.Controllers;
 
 public class EquipmentController : Controller
 {
     private readonly IEquipmentService _equipmentService;
+    private readonly ISiteService _siteService;
     private readonly ICertificationService _certService;
     private readonly IConfiguration _configuration;
 
     public EquipmentController(
         IEquipmentService equipmentService,
+        ISiteService siteService,
         ICertificationService certService,
         IConfiguration configuration)
     {
         _equipmentService = equipmentService;
+        _siteService = siteService;
         _certService = certService;
         _configuration = configuration;
     }
 
-    // GET /Equipment
     public IActionResult Index()
     {
         int overdueThresholdDays = _configuration.GetValue<int>("Checkout:OverdueThresholdDays", 7);
         var utcNow = DateTime.UtcNow;
-
         var items = _equipmentService.GetAllItems();
+        var siteNames = _siteService.GetAllSites().ToDictionary(site => site.Id, site => site.Name);
 
         var rows = items.Select(item =>
         {
@@ -52,25 +55,25 @@ public class EquipmentController : Controller
                 IsAvailable = item.IsAvailable,
                 IsOverdue = isOverdue,
                 BorrowerName = activeRecord?.BorrowerName,
-                DaysCheckedOut = daysCheckedOut
+                DaysCheckedOut = daysCheckedOut,
+                Status = item.Status,
+                SiteName = item.SiteId.HasValue && siteNames.TryGetValue(item.SiteId.Value, out var siteName) ? siteName : null
             };
         }).ToList();
 
         var model = new EquipmentListViewModel
         {
             Items = rows,
-            AvailableCount = rows.Count(r => r.IsAvailable)
+            AvailableCount = rows.Count(r => r.Status == EquipmentTracker.Web.Models.EquipmentStatus.Available)
         };
         return View(model);
     }
 
-    // GET /Equipment/Create
     public IActionResult Create()
     {
         return View(new CreateEquipmentViewModel());
     }
 
-    // POST /Equipment/Create
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Create(CreateEquipmentViewModel model)
@@ -84,7 +87,6 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET /Equipment/Checkout/5
     public IActionResult Checkout(int id)
     {
         var item = _equipmentService.GetItem(id);
@@ -100,12 +102,13 @@ public class EquipmentController : Controller
         var model = new CheckoutViewModel
         {
             EquipmentItemId = item.Id,
-            EquipmentItemName = item.Name
+            EquipmentItemName = item.Name,
+            ConfirmedSiteId = item.SiteId
         };
+        PopulateCheckoutSiteFields(model, item);
         return View(model);
     }
 
-    // POST /Equipment/Checkout
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Checkout(CheckoutViewModel model)
@@ -114,19 +117,26 @@ public class EquipmentController : Controller
         if (item is null)
             return NotFound();
 
+        if (model.ConfirmedSiteId.HasValue)
+        {
+            var selectedSite = _siteService.GetSite(model.ConfirmedSiteId.Value);
+            if (selectedSite is null || !selectedSite.IsActive)
+                ModelState.AddModelError(nameof(model.ConfirmedSiteId), "Please choose an active site.");
+        }
+
         if (!ModelState.IsValid)
         {
-            // Preserve cert block message if already set
-            if (model.CertBlockMessage is null)
+            if (model.CertBlockMessage is null && !string.IsNullOrWhiteSpace(model.BorrowerName))
             {
                 var outcome = _certService.ValidateCheckout(model.BorrowerName, item.Category);
                 if (outcome == CertValidationOutcome.Blocked)
                     model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
             }
+
+            PopulateCheckoutSiteFields(model, item);
             return View(model);
         }
 
-        // ── Cert enforcement gate (AC1) ───────────────────────────────────────
         var certOutcome = CertValidationOutcome.NotRequired;
 
         if (!model.IsOverrideAttempt)
@@ -135,24 +145,25 @@ public class EquipmentController : Controller
             if (certOutcome == CertValidationOutcome.Blocked)
             {
                 model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
+                PopulateCheckoutSiteFields(model, item);
                 return View(model);
             }
         }
         else
         {
-            // Override path (AC2) — supervisor name is mandatory
             if (string.IsNullOrWhiteSpace(model.OverrideSupervisorName))
             {
                 ModelState.AddModelError(nameof(model.OverrideSupervisorName),
                     "Supervisor name is required to override a blocked checkout.");
                 model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
+                PopulateCheckoutSiteFields(model, item);
                 return View(model);
             }
+
             certOutcome = CertValidationOutcome.Overridden;
         }
 
-        // ── Perform checkout ──────────────────────────────────────────────────
-        var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName);
+        var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName, newSiteId: model.ConfirmedSiteId);
         if (!success)
         {
             var currentHolder = _equipmentService.GetCurrentHolder(model.EquipmentItemId);
@@ -160,6 +171,7 @@ public class EquipmentController : Controller
                 ? $"'{model.EquipmentItemName}' is already checked out by {currentHolder}."
                 : $"'{model.EquipmentItemName}' is no longer available for checkout.";
             ModelState.AddModelError(string.Empty, errorMessage);
+            PopulateCheckoutSiteFields(model, item);
             return View(model);
         }
 
@@ -195,7 +207,6 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // GET /Equipment/History/5
     public IActionResult History(int id)
     {
         var item = _equipmentService.GetItem(id);
@@ -212,7 +223,6 @@ public class EquipmentController : Controller
         return View(model);
     }
 
-    // POST /Equipment/Return/5
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Return(int id)
@@ -232,5 +242,15 @@ public class EquipmentController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private void PopulateCheckoutSiteFields(CheckoutViewModel model, EquipmentTracker.Web.Models.EquipmentItem item)
+    {
+        model.CurrentSiteName = item.SiteId.HasValue ? _siteService.GetSite(item.SiteId.Value)?.Name : null;
+        model.SiteOptions =
+        [
+            new SelectListItem("No change", ""),
+            .. _siteService.GetActiveSites().Select(site => new SelectListItem(site.Name, site.Id.ToString()))
+        ];
     }
 }

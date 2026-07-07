@@ -22,13 +22,26 @@
                 <p class="form-control-plaintext fw-bold">@Model.EquipmentItemName</p>
             </div>
 
+            @if (!string.IsNullOrWhiteSpace(Model.CurrentSiteName))
+            {
+                <div class="mb-3">
+                    <label class="form-label">Current Site</label>
+                    <p class="form-control-plaintext">@Model.CurrentSiteName</p>
+                </div>
+            }
+
             <div class="mb-3">
                 <label asp-for="BorrowerName" class="form-label"></label>
                 <input asp-for="BorrowerName" class="form-control" placeholder="Your full name" />
                 <span asp-validation-for="BorrowerName" class="text-danger"></span>
             </div>
 
-            @* ── Cert block message & supervisor override (Issue #120) ─────────── *@
+            <div class="mb-3">
+                <label asp-for="ConfirmedSiteId" class="form-label">Confirm or Update Site</label>
+                <select asp-for="ConfirmedSiteId" asp-items="Model.SiteOptions" class="form-select"></select>
+                <span asp-validation-for="ConfirmedSiteId" class="text-danger"></span>
+            </div>
+
             @if (Model.CertBlockMessage != null)
             {
                 <div class="alert alert-danger mt-3" role="alert">
@@ -88,4 +101,3 @@
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }
-

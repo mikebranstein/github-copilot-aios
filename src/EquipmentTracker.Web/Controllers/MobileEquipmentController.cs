@@ -1,3 +1,4 @@
+using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -69,15 +70,17 @@ public class MobileEquipmentController : Controller
         };
     }
 
-    private EquipmentStatus GetStatus(int itemId)
+    private EquipmentTracker.Web.ViewModels.EquipmentStatus GetStatus(int itemId)
     {
         var item = _equipmentService.GetItem(itemId);
-        if (item is null || item.IsAvailable) return EquipmentStatus.Available;
+        if (item is null || item.IsAvailable) return EquipmentTracker.Web.ViewModels.EquipmentStatus.Available;
 
         var record = _equipmentService.GetActiveCheckoutRecord(itemId);
-        if (record is null) return EquipmentStatus.Available;
+        if (record is null) return EquipmentTracker.Web.ViewModels.EquipmentStatus.Available;
 
         var age = DateTime.UtcNow - record.CheckedOutAtUtc;
-        return age.TotalDays >= OverdueThresholdDays ? EquipmentStatus.Overdue : EquipmentStatus.CheckedOut;
+        return age.TotalDays >= OverdueThresholdDays
+            ? EquipmentTracker.Web.ViewModels.EquipmentStatus.Overdue
+            : EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut;
     }
 }
