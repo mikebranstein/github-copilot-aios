@@ -20,6 +20,13 @@ public class CheckoutRecord
     // When syncing an offline transaction, this is set to the timestamp recorded by the device.
     public DateTime? OfflineTimestamp { get; set; }
 
+    // Added for Issue #114 — Bulk Checkout and Return Operations for Field Teams
+    /// <summary>
+    /// Groups all CheckoutRecords that were created in the same bulk operation.
+    /// Null for single-item checkouts. Format: lowercase GUID hex (32 chars).
+    /// </summary>
+    public string? BatchTransactionId { get; set; }
+
     // Added for Issue #58 — Photo-Backed Checkout & Return
     public string? ConditionPhotoAtCheckout { get; set; }  // URL/path to photo
     public string? ConditionAtCheckout { get; set; }  // text description

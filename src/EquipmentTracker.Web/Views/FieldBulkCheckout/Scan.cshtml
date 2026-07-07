@@ -1,0 +1,141 @@
+@model EquipmentTracker.Web.ViewModels.FieldBulkCheckoutCartViewModel
+@{
+    ViewData["Title"] = "Bulk Checkout — Field Team";
+}
+
+<h2>Bulk Checkout</h2>
+<p class="text-muted">Scan items to add them to your checkout cart. Tap <strong>Confirm Checkout</strong> when ready.</p>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ScanFeedback))
+{
+    <div class="alert alert-success" role="alert">@Model.ScanFeedback</div>
+}
+
+<!-- Cart item count badge (AC1 — updates without leaving scan view) -->
+<div class="mb-3">
+    <strong>Cart: <span id="cart-count">@Model.CartItemCount</span> item(s)</strong>
+</div>
+
+<!-- Scan input form (simulates barcode scan; no keyboard required for barcode reader input) -->
+<form id="scan-form" asp-action="AddItem" asp-controller="FieldBulkCheckout" method="post" class="mb-3">
+    @Html.AntiForgeryToken()
+    <div class="input-group">
+        <input type="number" name="itemId" id="itemId-input" class="form-control form-control-lg"
+               placeholder="Item ID (scan QR/barcode)" autocomplete="off" autofocus
+               style="min-height:48px;" aria-label="Equipment Item ID" />
+        <!-- AC5: minimum 48x48dp tap target -->
+        <button type="submit" class="btn btn-primary btn-lg" style="min-height:48px;min-width:48px;" aria-label="Add to cart">
+            &#43; Add
+        </button>
+    </div>
+</form>
+
+<!-- Floating Action Button for persistent scan access (AC5) -->
+<button type="button" class="btn btn-success rounded-circle shadow"
+        style="position:fixed;bottom:24px;right:24px;width:64px;height:64px;font-size:1.8rem;z-index:1050;"
+        onclick="document.getElementById('itemId-input').focus();"
+        aria-label="Scan item">
+    &#128269;
+</button>
+
+<!-- Cart item list -->
+@if (Model.Cart.ItemCount > 0)
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="cart-items">
+            @foreach (var item in Model.Cart.Items)
+            {
+                <tr id="cart-row-@item.EquipmentItemId">
+                    <td>@item.ItemName</td>
+                    <td>@item.Category</td>
+                    <td>
+                        @if (item.IsSkipped)
+                        {
+                            <span class="badge bg-secondary">Skipped</span>
+                        }
+                        else if (item.HasConflict)
+                        {
+                            <span class="badge bg-warning text-dark">⚠ Checked out by @item.ConflictHolderName</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success">Ready</span>
+                        }
+                    </td>
+                    <td>
+                        @if (item.HasConflict && !item.IsSkipped)
+                        {
+                            <form asp-action="SkipItem" asp-controller="FieldBulkCheckout" method="post" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="itemId" value="@item.EquipmentItemId" />
+                                <button type="submit" class="btn btn-warning btn-sm" style="min-height:48px;min-width:48px;">Skip</button>
+                            </form>
+                        }
+                        <form asp-action="RemoveItem" asp-controller="FieldBulkCheckout" method="post" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemId" value="@item.EquipmentItemId" />
+                            <button type="submit" class="btn btn-outline-danger btn-sm" style="min-height:48px;min-width:48px;">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Assignee picker (dropdown — no keyboard input required, AC5) -->
+    <form asp-action="Confirm" asp-controller="FieldBulkCheckout" method="post" class="mt-3">
+        @Html.AntiForgeryToken()
+        <div class="mb-3">
+            <label for="borrowerUserId" class="form-label fw-bold">Assign to:</label>
+            <select name="borrowerUserId" id="borrowerUserId" class="form-select form-select-lg"
+                    style="min-height:48px;" onchange="updateBorrowerName(this)">
+                @foreach (var borrower in Model.Borrowers)
+                {
+                    if (borrower.Id == Model.SelectedBorrowerId)
+                    {
+                        <option value="@borrower.Id" data-name="@borrower.Username" selected>@borrower.Username</option>
+                    }
+                    else
+                    {
+                        <option value="@borrower.Id" data-name="@borrower.Username">@borrower.Username</option>
+                    }
+                }
+            </select>
+            <input type="hidden" name="borrowerName" id="borrowerName-input" value="@Model.SelectedBorrowerName" />
+        </div>
+        <!-- AC5: large confirm button, no text input required -->
+        <button type="submit" class="btn btn-success btn-lg w-100" style="min-height:56px;">
+            ✓ Confirm Checkout (@Model.CartItemCount item(s))
+        </button>
+    </form>
+
+    <form asp-action="Clear" asp-controller="FieldBulkCheckout" method="post" class="mt-2">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-secondary w-100" style="min-height:48px;">
+            Clear Cart
+        </button>
+    </form>
+}
+else
+{
+    <p class="text-muted">Your cart is empty. Scan an item to begin.</p>
+}
+
+<script>
+function updateBorrowerName(select) {
+    var selected = select.options[select.selectedIndex];
+    document.getElementById('borrowerName-input').value = selected.getAttribute('data-name') || selected.text;
+}
+</script>

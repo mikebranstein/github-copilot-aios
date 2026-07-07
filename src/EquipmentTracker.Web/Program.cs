@@ -17,7 +17,7 @@ builder.Services.AddSingleton<ICoordinatorNotificationService, CoordinatorNotifi
 builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
 builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
-
+builder.Services.AddSingleton<IFieldBulkCheckoutService, FieldBulkCheckoutService>();
 builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 
 builder.Services.AddSingleton<IWaitlistService, WaitlistService>();
