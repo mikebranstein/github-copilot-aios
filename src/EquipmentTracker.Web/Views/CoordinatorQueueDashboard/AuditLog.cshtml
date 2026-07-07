@@ -1,0 +1,34 @@
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Queue Audit Log";
+    var item = ViewBag.Item as EquipmentItem;
+    var auditLog = ViewBag.AuditLog as IReadOnlyList<QueueAuditEvent> ?? Array.Empty<QueueAuditEvent>();
+}
+
+<h2 class="h4 mb-3">Audit log for @item?.Name</h2>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Actor</th>
+                <th>Event</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var auditEvent in auditLog)
+            {
+                <tr>
+                    <td>@auditEvent.OccurredAtUtc.ToString("g") UTC</td>
+                    <td>@auditEvent.ActorName</td>
+                    <td>@auditEvent.EventType</td>
+                    <td>@auditEvent.Details</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<a asp-action="Detail" asp-route-equipmentItemId="@item?.Id" class="btn btn-outline-secondary">Back to queue</a>

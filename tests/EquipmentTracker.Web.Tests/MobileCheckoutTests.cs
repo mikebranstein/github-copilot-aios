@@ -322,7 +322,7 @@ public class MobileCheckoutTests
     // ── Ownership guard on return ──────────────────────────────────────────────
 
     [Fact]
-    public void EquipmentService_Return_FailsWhenCalledByNonBorrowerNonCoordinator()
+    public async Task EquipmentService_Return_FailsWhenCalledByNonBorrowerNonCoordinator()
     {
         // Scenario: User A (userId=1) checks out an item.
         // User B (userId=2, not a coordinator) attempts to return it.
@@ -353,7 +353,7 @@ public class MobileCheckoutTests
         controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
 
         // Act: User B attempts to confirm the return
-        var result = controller.ConfirmPost(item.Id, returnConditionNote: null);
+        var result = await controller.ConfirmPost(item.Id, returnConditionNote: null);
 
         // Assert: should redirect to Scan with an error (ownership guard triggered)
         var redirect = Assert.IsType<RedirectToActionResult>(result);

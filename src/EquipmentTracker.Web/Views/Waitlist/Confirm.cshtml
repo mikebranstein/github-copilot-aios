@@ -1,0 +1,25 @@
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Confirm Reservation";
+    var entry = ViewBag.Entry as WaitlistEntry;
+    var item = ViewBag.Item as EquipmentItem;
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h4 mb-3">Confirm reservation</h2>
+                <p class="mb-1"><strong>Item:</strong> @item?.Name</p>
+                <p class="mb-3"><strong>Deadline:</strong> @(entry?.ConfirmationDeadlineUtc?.ToString("g") ?? "Unavailable") UTC</p>
+
+                <form asp-action="ConfirmPost" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="entryId" value="@entry?.Id" />
+                    <button type="submit" class="btn btn-success">Confirm reservation</button>
+                    <a asp-action="Position" asp-route-entryId="@entry?.Id" class="btn btn-outline-secondary">Back</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
