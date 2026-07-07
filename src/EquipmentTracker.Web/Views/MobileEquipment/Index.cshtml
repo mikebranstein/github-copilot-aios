@@ -1,0 +1,179 @@
+@model IEnumerable<EquipmentTracker.Web.ViewModels.CatalogItemViewModel>
+@{
+    ViewData["Title"] = "Equipment Catalog";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2">
+    <h2 class="mb-3">Equipment Catalog</h2>
+
+    <div id="offline-banner" class="alert alert-warning d-none" role="alert">
+        You are offline — data may be out of date.
+    </div>
+
+    <div id="notifications-denied-banner" class="alert alert-info d-none" role="alert">
+        Enable notifications to receive overdue alerts.
+        <a asp-controller="Settings" asp-action="Notifications" class="alert-link">Go to Settings</a>
+    </div>
+
+    <div class="mb-3">
+        <input type="text" id="search-input" class="form-control" placeholder="Search by name or category..."
+               style="min-height: 44px;" oninput="filterCatalog()" />
+    </div>
+
+    <div id="catalog-list" class="row g-2">
+        @foreach (var item in Model)
+        {
+            var badgeClass = item.Status switch
+            {
+                EquipmentTracker.Web.ViewModels.EquipmentStatus.Available => "bg-success",
+                EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut => "bg-warning text-dark",
+                EquipmentTracker.Web.ViewModels.EquipmentStatus.Overdue => "bg-danger",
+                _ => "bg-secondary"
+            };
+            var statusText = item.Status.ToString();
+
+            <div class="col-12 col-sm-6 col-md-4 catalog-item"
+                 data-name="@item.Name.ToLowerInvariant()"
+                 data-category="@item.Category.ToLowerInvariant()">
+                <a asp-action="Detail" asp-route-id="@item.Id" class="text-decoration-none">
+                    <div class="card h-100">
+                        <div class="card-body d-flex flex-column justify-content-between" style="min-height: 80px;">
+                            <h5 class="card-title">@item.Name</h5>
+                            <p class="card-text text-muted mb-2">@item.Category</p>
+                            <span class="badge @badgeClass">@statusText</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function updateOnlineStatus() {
+        var banner = document.getElementById('offline-banner');
+        if (!navigator.onLine) {
+            banner.classList.remove('d-none');
+            loadCachedCatalog();
+        } else {
+            banner.classList.add('d-none');
+            cacheCatalog();
+        }
+    }
+
+    function cacheCatalog() {
+        var list = document.getElementById('catalog-list');
+        if (!list) return;
+
+        var items = [];
+        document.querySelectorAll('.catalog-item').forEach(function(el) {
+            items.push({
+                name: el.dataset.name,
+                category: el.dataset.category,
+                html: el.outerHTML
+            });
+        });
+
+        try {
+            localStorage.setItem('catalogCache', JSON.stringify(items));
+            localStorage.setItem('catalogCacheHtml', list.innerHTML);
+        } catch (e) { }
+    }
+
+    function loadCachedCatalog() {
+        var list = document.getElementById('catalog-list');
+        if (!list || list.children.length > 0) return;
+
+        try {
+            var cachedHtml = localStorage.getItem('catalogCacheHtml');
+            if (cachedHtml) {
+                list.innerHTML = cachedHtml;
+            }
+        } catch (e) { }
+    }
+
+    async function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return null;
+
+        try {
+            return await navigator.serviceWorker.register('/service-worker.js');
+        } catch (e) {
+            console.log('Service worker registration failed:', e);
+            return null;
+        }
+    }
+
+    async function registerPushSubscription() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        try {
+            await registerServiceWorker();
+            var response = await fetch('/api/notifications/vapid-public-key');
+            var data = await response.json();
+            var registration = await navigator.serviceWorker.ready;
+            var existingSubscription = await registration.pushManager.getSubscription();
+            var subscription = existingSubscription || await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(data.publicKey)
+            });
+
+            var json = subscription.toJSON();
+            await fetch('/api/notifications/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    endpoint: json.endpoint,
+                    p256dh: json.keys ? json.keys.p256dh : null,
+                    auth: json.keys ? json.keys.auth : null
+                })
+            });
+        } catch (e) {
+            console.log('Push registration skipped:', e);
+        }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+
+    function filterCatalog() {
+        var query = document.getElementById('search-input').value.toLowerCase();
+        document.querySelectorAll('.catalog-item').forEach(function(el) {
+            var name = el.dataset.name || '';
+            var category = el.dataset.category || '';
+            el.style.display = (name.includes(query) || category.includes(query)) ? '' : 'none';
+        });
+    }
+
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    document.addEventListener('DOMContentLoaded', async function() {
+        updateOnlineStatus();
+        await registerServiceWorker();
+
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().then(function(permission) {
+                if (permission === 'denied') {
+                    document.getElementById('notifications-denied-banner').classList.remove('d-none');
+                } else if (permission === 'granted') {
+                    registerPushSubscription();
+                }
+            });
+        } else if ('Notification' in window && Notification.permission === 'denied') {
+            document.getElementById('notifications-denied-banner').classList.remove('d-none');
+        } else if ('Notification' in window && Notification.permission === 'granted') {
+            registerPushSubscription();
+        }
+    });
+</script>
+}

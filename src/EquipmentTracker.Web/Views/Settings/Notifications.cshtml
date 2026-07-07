@@ -1,0 +1,30 @@
+@model EquipmentTracker.Web.ViewModels.NotificationSettingsViewModel
+@{
+    ViewData["Title"] = "Notification Settings";
+    Layout = "_Layout";
+}
+
+<div class="row justify-content-center">
+    <div class="col-12 col-sm-8 col-md-6">
+        <h2 class="mb-4">Notification Settings</h2>
+
+        @if (TempData["Success"] is string success)
+        {
+            <div class="alert alert-success">@success</div>
+        }
+
+        <form asp-action="Notifications" method="post">
+            @Html.AntiForgeryToken()
+            <div class="form-check form-switch mb-3">
+                <input asp-for="NotificationsEnabled" class="form-check-input"
+                       style="min-width: 44px; min-height: 28px;" />
+                <label asp-for="NotificationsEnabled" class="form-check-label">
+                    Enable push notifications for overdue equipment
+                </label>
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary" style="min-height: 44px;">Save Settings</button>
+            </div>
+        </form>
+    </div>
+</div>
