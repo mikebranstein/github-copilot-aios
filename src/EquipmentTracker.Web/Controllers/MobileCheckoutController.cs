@@ -19,6 +19,8 @@ public class MobileCheckoutController : Controller
     private readonly IUserService _userService;
     private readonly ICoordinatorNotificationService _notificationService;
     private readonly IPushNotificationService _pushService;
+    private readonly IApprovalService _approvalService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<MobileCheckoutController> _logger;
 
     public MobileCheckoutController(
@@ -26,12 +28,16 @@ public class MobileCheckoutController : Controller
         IUserService userService,
         ICoordinatorNotificationService notificationService,
         IPushNotificationService pushService,
+        IApprovalService approvalService,
+        IConfiguration configuration,
         ILogger<MobileCheckoutController> logger)
     {
         _equipmentService = equipmentService;
         _userService = userService;
         _notificationService = notificationService;
         _pushService = pushService;
+        _approvalService = approvalService;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -110,7 +116,8 @@ public class MobileCheckoutController : Controller
     public async Task<IActionResult> ConfirmPost(
         [FromForm] int itemId,
         [FromForm] int assigneeId,
-        [FromForm] string assigneeName)
+        [FromForm] string assigneeName,
+        [FromForm] string? conditionNote)
     {
         var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
         var currentUsername = User.FindFirstValue(ClaimTypes.Name) ?? "unknown";
@@ -124,6 +131,10 @@ public class MobileCheckoutController : Controller
             var assigneeUser = _userService.GetById(effectiveUserId);
             effectiveName = assigneeUser?.Username ?? currentUsername;
         }
+
+        // Enforce max condition note length
+        if (conditionNote?.Length > 500)
+            conditionNote = conditionNote[..500];
 
         var item = _equipmentService.GetItem(itemId);
         if (item is null)
@@ -154,8 +165,8 @@ public class MobileCheckoutController : Controller
             return View("Confirm", vm);
         }
 
-        // Perform checkout
-        var success = _equipmentService.Checkout(itemId, effectiveName, effectiveUserId);
+        // Perform checkout (with optional condition note)
+        var success = _equipmentService.Checkout(itemId, effectiveName, effectiveUserId, conditionNote);
         if (!success)
         {
             var borrowers = _userService.GetBorrowers();
@@ -170,7 +181,7 @@ public class MobileCheckoutController : Controller
             return View("Confirm", vm);
         }
 
-        // AC6: Create coordinator notifications and optionally send push
+        // Create coordinator notifications and optionally send push
         var checkoutRecord = _equipmentService.GetActiveCheckoutRecord(itemId);
         if (checkoutRecord is not null)
         {
@@ -195,10 +206,44 @@ public class MobileCheckoutController : Controller
                     }
                 }
             }
+
+            // Create approval request
+            _approvalService.CreateRequest(checkoutRecord.Id, effectiveUserId);
         }
 
-        TempData["SuccessMessage"] = $"'{item.Name}' successfully checked out to {effectiveName}.";
-        return RedirectToAction("Success", new { itemId });
+        TempData["SuccessMessage"] = $"'{item.Name}' successfully checked out to {effectiveName}. Awaiting coordinator approval.";
+        return RedirectToAction("Pending", new { checkoutRecordId = checkoutRecord?.Id ?? 0 });
+    }
+
+    // GET /mobile/checkout/pending?checkoutRecordId={id}
+    [HttpGet("pending")]
+    public IActionResult Pending([FromQuery] int checkoutRecordId)
+    {
+        var approval = _approvalService.GetByCheckoutRecordId(checkoutRecordId);
+        ViewBag.CheckoutRecordId = checkoutRecordId;
+        ViewBag.InitialStatus = approval?.Status.ToString() ?? "Pending";
+        return View();
+    }
+
+    // GET /mobile/checkout/approval-status/{checkoutRecordId}
+    [HttpGet("approval-status/{checkoutRecordId:int}")]
+    public IActionResult ApprovalStatus(int checkoutRecordId)
+    {
+        var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+        var approval = _approvalService.GetByCheckoutRecordId(checkoutRecordId);
+
+        if (approval is null)
+            return NotFound(new { error = "No approval request found." });
+
+        // Only the requesting borrower may poll this endpoint
+        if (approval.RequestingUserId != currentUserId)
+            return Forbid();
+
+        return Json(new
+        {
+            status = approval.Status.ToString(),
+            denialReason = approval.DenialReason
+        });
     }
 
     // GET /mobile/checkout/success?itemId={id}

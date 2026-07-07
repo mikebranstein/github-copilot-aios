@@ -17,6 +17,11 @@ builder.Services.AddSingleton<IPushNotificationService, WebPushService>();
 // Coordinator notification service (in-memory, singleton)
 builder.Services.AddSingleton<ICoordinatorNotificationService, CoordinatorNotificationService>();
 
+// Approval, audit, and bulk checkout services (Issue #40)
+builder.Services.AddSingleton<IApprovalService, ApprovalService>();
+builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
+builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
+
 // Background notification job
 builder.Services.AddHostedService<OverdueNotificationJob>();
 

@@ -15,13 +15,16 @@ namespace EquipmentTracker.Web.Controllers;
 public class MobileReturnController : Controller
 {
     private readonly IEquipmentService _equipmentService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<MobileReturnController> _logger;
 
     public MobileReturnController(
         IEquipmentService equipmentService,
+        IConfiguration configuration,
         ILogger<MobileReturnController> logger)
     {
         _equipmentService = equipmentService;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -45,11 +48,14 @@ public class MobileReturnController : Controller
         if (item.IsAvailable)
             error = $"'{item.Name}' is already available — no active checkout to return.";
 
+        var conditionCaptureRequired = _configuration.GetValue<bool>("Features:ConditionCaptureRequired", false);
+
         var vm = new MobileReturnConfirmViewModel
         {
             Item = item,
             ActiveRecord = activeRecord,
-            ErrorMessage = error
+            ErrorMessage = error,
+            ConditionCaptureRequired = conditionCaptureRequired
         };
 
         return View(vm);
@@ -58,10 +64,12 @@ public class MobileReturnController : Controller
     // POST /mobile/return/confirm
     [HttpPost("confirm")]
     [ValidateAntiForgeryToken]
-    public IActionResult ConfirmPost([FromForm] int itemId)
+    public IActionResult ConfirmPost([FromForm] int itemId, [FromForm] string? returnConditionNote)
     {
         var item = _equipmentService.GetItem(itemId);
         if (item is null) return NotFound();
+
+        var conditionCaptureRequired = _configuration.GetValue<bool>("Features:ConditionCaptureRequired", false);
 
         // Ownership guard: only the borrower or a coordinator may return an item.
         var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
@@ -76,24 +84,44 @@ public class MobileReturnController : Controller
             return RedirectToAction("Scan");
         }
 
+        // Validate condition note if required
+        if (conditionCaptureRequired && string.IsNullOrWhiteSpace(returnConditionNote))
+        {
+            var vm = new MobileReturnConfirmViewModel
+            {
+                Item = item,
+                ActiveRecord = activeRecord,
+                ErrorMessage = "A condition note is required when returning equipment.",
+                ConditionCaptureRequired = true
+            };
+            Response.StatusCode = 422;
+            return View("Confirm", vm);
+        }
+
+        // Enforce max length
+        if (returnConditionNote?.Length > 500)
+            returnConditionNote = returnConditionNote[..500];
+
         if (item.IsAvailable)
         {
             var vm = new MobileReturnConfirmViewModel
             {
                 Item = item,
-                ErrorMessage = $"'{item.Name}' is already available."
+                ErrorMessage = $"'{item.Name}' is already available.",
+                ConditionCaptureRequired = conditionCaptureRequired
             };
             Response.StatusCode = 409;
             return View("Confirm", vm);
         }
 
-        var success = _equipmentService.Return(itemId);
+        var success = _equipmentService.Return(itemId, returnConditionNote);
         if (!success)
         {
             var vm = new MobileReturnConfirmViewModel
             {
                 Item = item,
-                ErrorMessage = "Return failed. Tap to retry."
+                ErrorMessage = "Return failed. Tap to retry.",
+                ConditionCaptureRequired = conditionCaptureRequired
             };
             Response.StatusCode = 409;
             return View("Confirm", vm);

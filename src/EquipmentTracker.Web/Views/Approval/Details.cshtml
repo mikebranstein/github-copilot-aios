@@ -1,0 +1,95 @@
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Approval Details";
+    Layout = "_Layout";
+    var request = ViewBag.Request as ApprovalRequest;
+}
+
+<div class="container py-3">
+    <h3 class="mb-3">🔍 Approval Details — #@request?.Id</h3>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Equipment</dt>
+                <dd class="col-sm-8"><strong>@ViewBag.ItemName</strong> (@ViewBag.ItemCategory)</dd>
+
+                <dt class="col-sm-4">Requester</dt>
+                <dd class="col-sm-8">@ViewBag.RequesterName</dd>
+
+                <dt class="col-sm-4">Requested At</dt>
+                <dd class="col-sm-8">@request?.RequestedAtUtc.ToString("g") UTC</dd>
+
+                <dt class="col-sm-4">Status</dt>
+                <dd class="col-sm-8">
+                    @if (request?.Status == ApprovalStatus.Pending)
+                    {
+                        <span class="badge bg-warning text-dark">Pending</span>
+                    }
+                    else if (request?.Status == ApprovalStatus.Approved)
+                    {
+                        <span class="badge bg-success">Approved</span>
+                    }
+                    else if (request?.Status == ApprovalStatus.AutoApproved)
+                    {
+                        <span class="badge bg-info">Auto-Approved</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-danger">Denied</span>
+                    }
+                </dd>
+
+                @if (!string.IsNullOrEmpty(ViewBag.ConditionNote as string))
+                {
+                    <dt class="col-sm-4">Condition Note</dt>
+                    <dd class="col-sm-8">@ViewBag.ConditionNote</dd>
+                }
+
+                @if (request?.DenialReason is not null)
+                {
+                    <dt class="col-sm-4">Denial Reason</dt>
+                    <dd class="col-sm-8 text-danger">@request.DenialReason</dd>
+                }
+            </dl>
+        </div>
+    </div>
+
+    @if (request?.Status == ApprovalStatus.Pending)
+    {
+        <div class="d-flex gap-2 mb-3">
+            <form method="post" action="/coordinator/approvals/@request.Id/approve">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-success">✅ Approve</button>
+            </form>
+
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#denyModal">
+                ❌ Deny
+            </button>
+        </div>
+
+        <div class="modal fade" id="denyModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Deny Checkout</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="post" action="/coordinator/approvals/@request.Id/deny">
+                        @Html.AntiForgeryToken()
+                        <div class="modal-body">
+                            <label for="reason" class="form-label">Denial Reason (optional)</label>
+                            <textarea id="reason" name="reason" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Deny</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+
+    <a href="/coordinator/approvals" class="btn btn-outline-secondary">← Back to Queue</a>
+</div>

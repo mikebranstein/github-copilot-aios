@@ -1,0 +1,86 @@
+@{
+    ViewData["Title"] = "Pending Approval";
+    Layout = "_Layout";
+    var checkoutRecordId = (int)ViewBag.CheckoutRecordId;
+    var initialStatus = (string)ViewBag.InitialStatus;
+}
+
+<div class="container-fluid px-2 py-3 text-center">
+    <div id="pending-view">
+        <div class="mb-4" style="font-size:3rem;">⏳</div>
+        <h4 class="mb-2">Awaiting Coordinator Approval</h4>
+        <p class="text-muted">Your checkout request has been submitted. A coordinator will review it shortly.</p>
+        <p class="text-muted small">This page will update automatically. Auto-approved after 5 minutes.</p>
+        <div id="status-badge" class="mb-3">
+            <span class="badge bg-warning text-dark fs-6">Pending</span>
+        </div>
+        <div id="spinner" class="spinner-border text-warning" role="status">
+            <span class="visually-hidden">Polling...</span>
+        </div>
+    </div>
+
+    <div id="approved-view" class="d-none">
+        <div class="mb-4" style="font-size:3rem;">✅</div>
+        <h4 class="text-success">Checkout Approved!</h4>
+        <p class="text-muted">Your equipment is ready to use.</p>
+        <a href="/mobile/checkout/scan" class="btn btn-primary mt-2">Check Out Another Item</a>
+    </div>
+
+    <div id="denied-view" class="d-none">
+        <div class="mb-4" style="font-size:3rem;">❌</div>
+        <h4 class="text-danger">Checkout Denied</h4>
+        <p id="denial-reason" class="text-muted"></p>
+        <a href="/mobile/checkout/scan" class="btn btn-outline-secondary mt-2">← Back to Scan</a>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const checkoutRecordId = @checkoutRecordId;
+    const maxPollMs = 5 * 60 * 1000; // 5 minutes
+    const pollIntervalMs = 10 * 1000; // 10 seconds
+    const startTime = Date.now();
+    let pollTimer = null;
+
+    function showApproved() {
+        document.getElementById('pending-view').classList.add('d-none');
+        document.getElementById('approved-view').classList.remove('d-none');
+    }
+
+    function showDenied(reason) {
+        document.getElementById('pending-view').classList.add('d-none');
+        document.getElementById('denied-view').classList.remove('d-none');
+        const reasonEl = document.getElementById('denial-reason');
+        reasonEl.textContent = reason ? `Reason: ${reason}` : 'The coordinator denied this checkout request.';
+    }
+
+    async function pollStatus() {
+        if (Date.now() - startTime > maxPollMs) {
+            // Stop polling after 5 minutes
+            clearInterval(pollTimer);
+            return;
+        }
+
+        try {
+            const resp = await fetch(`/mobile/checkout/approval-status/${checkoutRecordId}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+
+            if (data.status === 'Approved' || data.status === 'AutoApproved') {
+                clearInterval(pollTimer);
+                showApproved();
+            } else if (data.status === 'Denied') {
+                clearInterval(pollTimer);
+                showDenied(data.denialReason);
+            }
+            // Still Pending — keep polling
+        } catch (e) {
+            // Network error — keep polling
+        }
+    }
+
+    // Start polling immediately, then every 10s
+    pollStatus();
+    pollTimer = setInterval(pollStatus, pollIntervalMs);
+</script>
+}

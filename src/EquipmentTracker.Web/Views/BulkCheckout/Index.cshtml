@@ -1,0 +1,79 @@
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = "Bulk Checkout";
+    Layout = "_Layout";
+    var availableItems = ViewBag.AvailableItems as List<EquipmentItem> ?? new();
+    var borrowers = ViewBag.Borrowers as IReadOnlyList<ApplicationUser> ?? new List<ApplicationUser>();
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-3">🗂️ Coordinator Bulk Checkout</h4>
+    <p class="text-muted small mb-3">Check out equipment to a crew member. Approval is auto-granted for coordinator-initiated checkouts.</p>
+
+    @if (TempData["SuccessMessage"] is string success)
+    {
+        <div class="alert alert-success">@success</div>
+    }
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    @if (!availableItems.Any())
+    {
+        <div class="alert alert-warning">No items are currently available for checkout.</div>
+    }
+    else
+    {
+        <form method="post" action="/mobile/bulk-checkout/confirm">
+            @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+                <label for="itemId" class="form-label fw-semibold">Equipment Item</label>
+                <select id="itemId" name="itemId" class="form-select" required style="min-height:48px;">
+                    <option value="">-- Select available item --</option>
+                    @foreach (var item in availableItems)
+                    {
+                        <option value="@item.Id">@item.Name (@item.Category)</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="borrowerUserId" class="form-label fw-semibold">Crew Member</label>
+                <select id="borrowerUserId" name="borrowerUserId" class="form-select" required style="min-height:48px;">
+                    <option value="">-- Select crew member --</option>
+                    @foreach (var user in borrowers)
+                    {
+                        <option value="@user.Id">@user.Username</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="conditionNote" class="form-label fw-semibold">Condition Note <span class="text-muted fw-normal">(optional, max 500 chars)</span></label>
+                <textarea id="conditionNote" name="conditionNote" class="form-control" rows="2"
+                          maxlength="500" placeholder="Describe current condition of the item..."></textarea>
+                <div class="form-text text-end" id="conditionNoteCount">0 / 500</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg w-100" style="min-height:56px;">
+                ✅ Check Out Item
+            </button>
+        </form>
+    }
+
+    <a href="/" class="btn btn-outline-secondary mt-3">← Back to Home</a>
+</div>
+
+@section Scripts {
+<script>
+    const ta = document.getElementById('conditionNote');
+    const counter = document.getElementById('conditionNoteCount');
+    if (ta && counter) {
+        ta.addEventListener('input', () => {
+            counter.textContent = `${ta.value.length} / 500`;
+        });
+    }
+</script>
+}

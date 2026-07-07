@@ -9,4 +9,10 @@ public class CheckoutRecord
     public DateTime CheckedOutAtUtc { get; set; }
     public DateTime? ReturnedAtUtc { get; set; }
     public int? JobSiteId { get; set; }  // reserved for v1.1
+
+    // Added for Issue #40
+    public string? ConditionNote { get; set; }
+    public string? ReturnConditionNote { get; set; }
+    public int? BulkCheckoutInitiatorId { get; set; }
+    public bool IsVoided { get; set; } = false;
 }

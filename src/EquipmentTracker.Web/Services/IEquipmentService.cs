@@ -9,10 +9,10 @@ public interface IEquipmentService
     EquipmentItem CreateItem(string name, string category);
 
     /// <summary>Returns false if the item does not exist or is already checked out.</summary>
-    bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null);
+    bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null, string? conditionNote = null, int? bulkCheckoutInitiatorId = null);
 
     /// <summary>Returns false if the item does not exist or is already available.</summary>
-    bool Return(int itemId);
+    bool Return(int itemId, string? returnConditionNote = null);
 
     /// <summary>Returns the borrower name of the active (unreturned) checkout for the given item, or null if the item is available.</summary>
     string? GetCurrentHolder(int itemId);
@@ -37,6 +37,12 @@ public interface IEquipmentService
     /// Returns up to the requested limit (default 30). Returns an empty list if user has no history.
     /// </summary>
     IReadOnlyList<CheckoutHistoryEntry> GetCheckoutHistoryByUser(int userId, int limit = 30);
+
+    /// <summary>Returns a checkout record by its ID across all items, or null if not found.</summary>
+    CheckoutRecord? GetCheckoutRecordById(int recordId);
+
+    /// <summary>Returns all raw checkout records across all items (for audit export).</summary>
+    IReadOnlyList<CheckoutRecord> GetAllRawCheckoutRecords();
 
     /// <summary>
     /// Returns true if a non-returned checkout for the same (BorrowerUserId, EquipmentItemId)

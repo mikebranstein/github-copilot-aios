@@ -1,0 +1,71 @@
+@{
+    ViewData["Title"] = "Audit Trail Export";
+    Layout = "_Layout";
+}
+
+<div class="container py-3">
+    <h3 class="mb-3">📋 Audit Trail Export</h3>
+
+    @if (TempData["ErrorMessage"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <p class="text-muted">Export checkout records as a CSV file. Maximum date range is 90 days.</p>
+
+            <form method="get" action="/audit/export/csv">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label for="from" class="form-label fw-semibold">From Date</label>
+                        <input type="date" id="from" name="from" class="form-control"
+                               value="@DateTime.UtcNow.AddDays(-30).ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="to" class="form-label fw-semibold">To Date</label>
+                        <input type="date" id="to" name="to" class="form-control"
+                               value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">⬇️ Download CSV</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <h5>CSV Columns</h5>
+        <ul class="text-muted small">
+            <li>EquipmentId</li>
+            <li>ItemName</li>
+            <li>CheckedOutBy</li>
+            <li>CheckoutTimestamp</li>
+            <li>ReturnTimestamp</li>
+            <li>ApprovalStatus</li>
+            <li>DenialReason</li>
+            <li>ConditionNote</li>
+            <li>ReturnConditionNote</li>
+        </ul>
+    </div>
+
+    <a href="/" class="btn btn-outline-secondary mt-2">← Back to Home</a>
+</div>
+
+@section Scripts {
+<script>
+    // Validate date range on client side (max 90 days)
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const from = new Date(document.getElementById('from').value);
+        const to = new Date(document.getElementById('to').value);
+        const diffDays = (to - from) / (1000 * 60 * 60 * 24);
+        if (diffDays > 90) {
+            e.preventDefault();
+            alert('Date range must be 90 days or less.');
+        }
+        if (to < from) {
+            e.preventDefault();
+            alert('To date must be on or after From date.');
+        }
+    });
+</script>
+}

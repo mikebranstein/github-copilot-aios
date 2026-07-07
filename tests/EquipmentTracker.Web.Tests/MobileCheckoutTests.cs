@@ -4,6 +4,7 @@ using EquipmentTracker.Web.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Security.Claims;
 using Xunit;
@@ -334,7 +335,8 @@ public class MobileCheckoutTests
 
         // Set up the controller with a real EquipmentService
         var logger = NullLogger<MobileReturnController>.Instance;
-        var controller = new MobileReturnController(equipmentSvc, logger);
+        var config = new ConfigurationBuilder().Build();
+        var controller = new MobileReturnController(equipmentSvc, config, logger);
 
         // Configure HttpContext as User B (userId=2, not a coordinator)
         var claims = new[]
@@ -351,7 +353,7 @@ public class MobileCheckoutTests
         controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
 
         // Act: User B attempts to confirm the return
-        var result = controller.ConfirmPost(item.Id);
+        var result = controller.ConfirmPost(item.Id, returnConditionNote: null);
 
         // Assert: should redirect to Scan with an error (ownership guard triggered)
         var redirect = Assert.IsType<RedirectToActionResult>(result);
