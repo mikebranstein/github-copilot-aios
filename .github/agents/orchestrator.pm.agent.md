@@ -65,7 +65,11 @@ For the first unprocessed `pm-idea` issue found, route as follows:
    pm-deferred (quarterly review): Z
    ```
 
-6. Go back to step 1 (check for next unprocessed pm-idea, start next cycle).
+6. Wait 30 seconds, then go back to step 1 (check for next unprocessed pm-idea, start next cycle).
+   ```bash
+   sleep 30
+   ```
+   **Why the wait?** Avoids hammering GitHub API with constant requests. Gives PM agent time to complete any lingering work. Provides a natural checkpoint for monitoring.
 
 ---
 
@@ -168,16 +172,19 @@ cp templates/agents/orchestrator.pm.agent.md .github/agents/orchestrator.agent.m
 
 # Start in a terminal
 copilot --autopilot --allow-all-tools --enable-all-github-mcp-tools \
-  -p "Start the PM orchestrator."
+  -p "Start the PM orchestrator. Run continuously in an infinite loop. Check every 30 seconds for new unprocessed pm-idea issues. Do not stop until Ctrl+C."
 ```
 
-The orchestrator will:
+The orchestrator will run **continuously** in a loop:
 1. Check for unprocessed `pm-idea` issues
-2. Spawn PM agent on first unprocessed pm-idea
+2. If found: spawn PM agent on first unprocessed pm-idea
 3. Wait for PM agent to complete discovery/validation
 4. Output cycle summary
-5. Loop back to step 1
-6. Continue until you press Ctrl+C
+5. **Wait 30 seconds**
+6. Loop back to step 1
+7. Continue checking every 30 seconds until you press Ctrl+C
+
+**This means:** Once started, the PM orchestrator will keep running, automatically discovering and validating new pm-ideas as they arrive—no manual re-invocation needed. You just leave Terminal 1 running.
 
 ---
 

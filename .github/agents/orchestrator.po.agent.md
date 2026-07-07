@@ -71,7 +71,11 @@ For the first unprocessed CHAMPION opportunity found, route as follows:
    Strategic-opportunities awaiting prioritization: Y
    ```
 
-6. Go back to step 1 (check for next unprocessed opportunity, start next cycle).
+6. Wait 30 seconds, then go back to step 1 (check for next unprocessed opportunity, start next cycle).
+   ```bash
+   sleep 30
+   ```
+   **Why the wait?** Avoids hammering GitHub API with constant requests. Gives PO agent time to complete any lingering work. Provides a natural checkpoint for monitoring.
 
 ---
 
@@ -168,16 +172,19 @@ cp templates/agents/orchestrator.po.agent.md .github/agents/orchestrator.agent.m
 
 # Start in a separate terminal (while PM orchestrator runs in Terminal 1)
 copilot --autopilot --allow-all-tools --enable-all-github-mcp-tools \
-  -p "Start the PO orchestrator."
+  -p "Start the PO orchestrator. Run continuously in an infinite loop. Check every 30 seconds for new CHAMPION strategic-opportunities without feature-requests. Do not stop until Ctrl+C."
 ```
 
-The orchestrator will:
+The orchestrator will run **continuously** in a loop:
 1. Check for CHAMPION strategic-opportunities without corresponding feature-requests
-2. Spawn PO agent on first unprocessed CHAMPION opportunity
+2. If found: spawn PO agent on first unprocessed CHAMPION opportunity
 3. Wait for PO agent to complete prioritization and feature-request creation
 4. Output cycle summary
-5. Loop back to step 1
-6. Continue until you press Ctrl+C
+5. **Wait 30 seconds**
+6. Loop back to step 1
+7. Continue checking every 30 seconds until you press Ctrl+C
+
+**This means:** Once started, the PO orchestrator will keep running, automatically prioritizing validated opportunities as they arrive from the PM orchestrator—no manual re-invocation needed. You just leave Terminal 2 running in parallel with Terminal 1.
 
 ---
 
