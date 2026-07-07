@@ -1,0 +1,93 @@
+@model EquipmentTracker.Web.ViewModels.FieldBulkReturnCartViewModel
+@{
+    ViewData["Title"] = "Bulk Return — Field Team";
+}
+
+<h2>Bulk Return</h2>
+<p class="text-muted">Scan items to add them to your return cart. Tap <strong>Confirm Return</strong> when ready.</p>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ScanFeedback))
+{
+    <div class="alert alert-success" role="alert">@Model.ScanFeedback</div>
+}
+
+<!-- Cart item count badge -->
+<div class="mb-3">
+    <strong>Return Cart: <span id="return-cart-count">@Model.CartItemCount</span> item(s)</strong>
+</div>
+
+<!-- Scan input (no keyboard required with barcode scanner, AC5) -->
+<form asp-action="AddItem" asp-controller="FieldBulkReturn" method="post" class="mb-3">
+    @Html.AntiForgeryToken()
+    <div class="input-group">
+        <input type="number" name="itemId" id="return-itemId-input" class="form-control form-control-lg"
+               placeholder="Item ID (scan QR/barcode)" autocomplete="off" autofocus
+               style="min-height:48px;" aria-label="Equipment Item ID" />
+        <button type="submit" class="btn btn-primary btn-lg" style="min-height:48px;min-width:48px;" aria-label="Add to return cart">
+            &#43; Add
+        </button>
+    </div>
+</form>
+
+<!-- Persistent floating scan button (AC5) -->
+<button type="button" class="btn btn-warning rounded-circle shadow"
+        style="position:fixed;bottom:24px;right:24px;width:64px;height:64px;font-size:1.8rem;z-index:1050;"
+        onclick="document.getElementById('return-itemId-input').focus();"
+        aria-label="Scan item to return">
+    &#128269;
+</button>
+
+<!-- Return cart item list -->
+@if (Model.Cart.ItemCount > 0)
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Category</th>
+                <th>Current Holder</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.Cart.Items)
+            {
+                <tr>
+                    <td>@item.ItemName</td>
+                    <td>@item.Category</td>
+                    <td>@(item.ConflictHolderName ?? "—")</td>
+                    <td>
+                        <form asp-action="RemoveItem" asp-controller="FieldBulkReturn" method="post" style="display:inline;">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="itemId" value="@item.EquipmentItemId" />
+                            <button type="submit" class="btn btn-outline-danger btn-sm" style="min-height:48px;min-width:48px;">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <!-- Confirm Return button (AC5: large, no text input required) -->
+    <form asp-action="Confirm" asp-controller="FieldBulkReturn" method="post" class="mt-3">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-success btn-lg w-100" style="min-height:56px;">
+            ✓ Confirm Return (@Model.CartItemCount item(s))
+        </button>
+    </form>
+
+    <form asp-action="Clear" asp-controller="FieldBulkReturn" method="post" class="mt-2">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline-secondary w-100" style="min-height:48px;">
+            Clear Cart
+        </button>
+    </form>
+}
+else
+{
+    <p class="text-muted">Your return cart is empty. Scan an item to begin.</p>
+}
