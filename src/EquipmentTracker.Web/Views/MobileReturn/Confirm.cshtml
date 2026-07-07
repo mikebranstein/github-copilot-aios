@@ -1,85 +1,118 @@
 @model EquipmentTracker.Web.ViewModels.MobileReturnConfirmViewModel
 @{
-    ViewData["Title"] = "Confirm Return";
-    Layout = "_Layout";
+    ViewData["Title"] = "Return Equipment";
+    Layout = "_MobileLayout";
 }
 
-<div class="container-fluid px-2 py-3">
-    <h4 class="mb-3">↩️ Confirm Return</h4>
-
-    <!-- Equipment info card -->
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5 class="card-title">@Model.Item.Name</h5>
-            <p class="card-text text-muted mb-1">Category: @Model.Item.Category</p>
-            @if (Model.ActiveRecord is not null)
-            {
-                <p class="card-text mb-0">
-                    <strong>Current holder:</strong> @Model.ActiveRecord.BorrowerName<br />
-                    <strong>Checked out:</strong> @Model.ActiveRecord.CheckedOutAtUtc.ToString("g") UTC
-                </p>
-            }
-        </div>
-    </div>
+<div class="mobile-container">
+    <h2 class="mobile-heading">Return Equipment</h2>
+    <h3 class="item-name">@Model.Item.Name</h3>
 
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="alert alert-warning" role="alert">
             @Model.ErrorMessage
         </div>
-        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100">← Back to scan</a>
     }
-    else if (Model.Item.IsAvailable)
+
+    @if (Model.Item.IsAvailable)
     {
-        <div class="alert alert-info">This item is already available — nothing to return.</div>
-        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100">← Back to scan</a>
+        <p>This item is already available &mdash; there is nothing to return.</p>
+        <a href="/mobile/return/scan" class="btn btn-secondary">Back to Scan</a>
     }
     else
     {
-        <!-- Return confirmation form (single tap) -->
-        <form method="post" action="/mobile/return/confirm">
+        <form method="post" action="/mobile/return/confirm" id="returnForm">
             @Html.AntiForgeryToken()
             <input type="hidden" name="itemId" value="@Model.Item.Id" />
+            @if (Model.ActiveRecord != null)
+            {
+                <input type="hidden" name="checkoutRecordId" value="@Model.ActiveRecord.Id" />
+            }
 
-            <!-- Return condition note -->
-            <div class="mb-3">
-                <label for="returnConditionNote" class="form-label fw-semibold">
-                    Return Condition Note
-                    @if (Model.ConditionCaptureRequired)
+            @* AC1: Mandatory condition grade selection *@
+            <div class="form-section">
+                <label class="form-label required-label">Condition at Return <span class="required-star">*</span></label>
+                <p class="form-hint">Select the condition grade before completing the return.</p>
+                <div class="btn-group-grade" role="group" aria-label="Condition grade">
+                    @foreach (var grade in new[] { "Good", "Worn", "Damaged", "Lost" })
                     {
-                        <span class="text-danger">*</span>
+                        var cssClass = grade == "Good" ? "btn-grade-good"
+                                     : grade == "Worn" ? "btn-grade-worn"
+                                     : grade == "Damaged" ? "btn-grade-damaged"
+                                     : "btn-grade-lost";
+                        var isSelected = Model.SelectedConditionGrade == grade;
+                        <label class="btn-grade @cssClass @(isSelected ? "active" : "")" for="grade-@grade">
+                            <input type="radio" name="conditionGrade" id="grade-@grade"
+                                   value="@grade" @(isSelected ? "checked" : "") required>
+                            @grade
+                        </label>
                     }
-                    else
-                    {
-                        <span class="text-muted fw-normal">(optional)</span>
-                    }
-                    <span class="text-muted fw-normal small"> — max 500 chars</span>
-                </label>
-                <textarea id="returnConditionNote" name="returnConditionNote" class="form-control" rows="2"
-                          maxlength="500"
-                          placeholder="Describe condition of item being returned..."
-                          @(Model.ConditionCaptureRequired ? "required" : "")></textarea>
-                <div class="form-text text-end" id="rcnCount">0 / 500</div>
+                </div>
             </div>
 
-            <button type="submit" class="btn btn-success btn-lg w-100 mb-2" style="min-height:56px;">
-                ✅ Confirm Return
-            </button>
+            @* AC2: Photo capture for Damaged/Worn returns *@
+            @if (Model.PhotoCaptureEnabled)
+            {
+                <div class="form-section photo-section" id="photoSection" style="display:none;">
+                    <label class="form-label">Condition Photo (recommended for Damaged/Worn)</label>
+                    <button type="button" class="btn btn-outline-secondary" id="capturePhotoBtn">
+                        📷 Capture Photo
+                    </button>
+                    <div id="photoPreview" style="display:none;">
+                        <img id="capturedPhoto" src="" alt="Captured photo" class="photo-preview-img" />
+                        <input type="hidden" name="photoData" id="photoDataInput" />
+                    </div>
+                </div>
+            }
+
+            @if (Model.ConditionCaptureRequired)
+            {
+                <div class="form-section">
+                    <label class="form-label required-label" for="returnConditionNote">Condition Note <span class="required-star">*</span></label>
+                    <textarea name="returnConditionNote" id="returnConditionNote"
+                              class="form-control" rows="3" maxlength="500"
+                              placeholder="Describe the condition...">@Model.ActiveRecord?.ReturnConditionNote</textarea>
+                </div>
+            }
+            else
+            {
+                <div class="form-section">
+                    <label class="form-label" for="returnConditionNote">Condition Note (optional)</label>
+                    <textarea name="returnConditionNote" id="returnConditionNote"
+                              class="form-control" rows="2" maxlength="500"
+                              placeholder="Optional notes...">@Model.ActiveRecord?.ReturnConditionNote</textarea>
+                </div>
+            }
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-return" id="submitBtn" disabled>
+                    Confirm Return
+                </button>
+                <a href="/mobile/return/scan" class="btn btn-secondary">Cancel</a>
+            </div>
         </form>
-        <a href="/mobile/return/scan" class="btn btn-outline-secondary w-100" style="min-height:48px;">
-            ← Back to scan
-        </a>
+
+        <script>
+        // Enable submit button only when a grade is selected (AC1 client-side gate)
+        const radios = document.querySelectorAll('input[name="conditionGrade"]');
+        const submitBtn = document.getElementById('submitBtn');
+        const photoSection = document.getElementById('photoSection');
+
+        function onGradeChange() {
+            const selected = document.querySelector('input[name="conditionGrade"]:checked');
+            if (selected) {
+                submitBtn.disabled = false;
+                // Show photo section for Damaged/Worn
+                if (photoSection) {
+                    photoSection.style.display =
+                        (selected.value === 'Damaged' || selected.value === 'Worn') ? 'block' : 'none';
+                }
+            }
+        }
+        radios.forEach(r => r.addEventListener('change', onGradeChange));
+        // Initialise from pre-selected grade
+        onGradeChange();
+        </script>
     }
 </div>
-
-@section Scripts {
-<script>
-    const rcnTA = document.getElementById('returnConditionNote');
-    const rcnCount = document.getElementById('rcnCount');
-    if (rcnTA && rcnCount) {
-        rcnTA.addEventListener('input', () => {
-            rcnCount.textContent = `${rcnTA.value.length} / 500`;
-        });
-    }
-</script>
-}

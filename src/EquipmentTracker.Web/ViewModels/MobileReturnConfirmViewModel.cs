@@ -21,4 +21,10 @@ public class MobileReturnConfirmViewModel
 
     // Return photo — AC-R2
     public string? ConditionPhotoAtReturn { get; set; }
+
+    // Issue #115 — Equipment Condition Assessment & Damage Tracking at Return
+    /// <summary>The condition grade selected by the user (AC1). Required field.</summary>
+    public string? SelectedConditionGrade { get; set; }
+    /// <summary>Whether photo capture is enabled for this device/session (AC2).</summary>
+    public bool PhotoCaptureEnabled { get; set; } = true;
 }

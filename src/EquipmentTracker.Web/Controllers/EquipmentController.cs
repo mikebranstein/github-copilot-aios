@@ -12,17 +12,20 @@ public class EquipmentController : Controller
     private readonly ISiteService _siteService;
     private readonly ICertificationService _certService;
     private readonly IConfiguration _configuration;
+    private readonly IConditionAssessmentService? _conditionSvc;
 
     public EquipmentController(
         IEquipmentService equipmentService,
         ISiteService siteService,
         ICertificationService certService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IConditionAssessmentService? conditionSvc = null)
     {
         _equipmentService = equipmentService;
         _siteService = siteService;
         _certService = certService;
         _configuration = configuration;
+        _conditionSvc = conditionSvc;
     }
 
     public IActionResult Index()
@@ -175,7 +178,6 @@ public class EquipmentController : Controller
             return View(model);
         }
 
-        // ── Record cert validation result on the checkout record ──────────────
         var checkoutRecord = _equipmentService.GetActiveCheckoutRecord(model.EquipmentItemId);
         if (checkoutRecord is not null)
         {
@@ -183,7 +185,6 @@ public class EquipmentController : Controller
 
             if (certOutcome == CertValidationOutcome.Overridden)
             {
-                // Determine which cert was required for the block message
                 var reqs = _certService.GetRequirementsForCategory(item.Category);
                 var firstCertType = reqs.Select(r => _certService.GetCertType(r.CertTypeId)?.Name)
                                         .FirstOrDefault() ?? "certification";
@@ -223,6 +224,42 @@ public class EquipmentController : Controller
         return View(model);
     }
 
+    public IActionResult ConditionHistory(int id)
+    {
+        var item = _equipmentService.GetItem(id);
+        if (item is null)
+            return NotFound();
+
+        var records = _conditionSvc?.GetConditionHistory(id) ?? (IReadOnlyList<ConditionRecord>)Array.Empty<ConditionRecord>();
+        var historyEntries = records
+            .OrderByDescending(r => r.ServerTimestampUtc)
+            .Select(r => new ConditionHistoryEntry
+            {
+                ConditionRecordId = r.Id,
+                CheckoutRecordId = r.CheckoutRecordId,
+                Grade = r.Grade,
+                OperatorName = r.OperatorName,
+                ConditionServerTimestampUtc = r.ServerTimestampUtc,
+                SyncStatus = r.SyncStatus,
+                Photos = r.Photos,
+                HasMaintenanceTicket = r.MaintenanceTicketDraft is not null,
+                HasLostFlag = r.LostEquipmentFlag is not null,
+                HasConflictAlert = r.SchedulingConflictAlert is not null
+            })
+            .ToList();
+
+        var model = new ConditionHistoryViewModel
+        {
+            EquipmentItemId = item.Id,
+            EquipmentItemName = item.Name,
+            EquipmentCategory = item.Category,
+            EquipmentStatus = item.LifecycleStatus,
+            History = historyEntries
+        };
+        return View(model);
+    }
+
+    // POST /Equipment/Return/5
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Return(int id)
