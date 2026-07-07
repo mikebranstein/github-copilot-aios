@@ -101,35 +101,78 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
 
 3. **If YES signal AND strategic fit appears sound** → Proceed to research gates
 
-4. **Identify research needs** (Post as comment on `pm-idea`):
-   - What personas are affected? (Check Wiki for existing personas)
-   - What journey stages? (Check Wiki for related journey maps)
-   - What competitive research exists? (Check Research-to-Decision Index)
-   - **For each missing research item**, create a `research` work item with REQUIRED labels:
+4. **CRITICAL STEP: Check if Research Already Exists**
+
+   Before creating any research work item, search the wiki. This prevents duplicate research.
+
+   **For each subject/topic identified:**
+   
+   ```bash
+   CALL SKILL: wiki-manager
+   {
+     "action": "search",
+     "repo": "[owner]/[repo]",
+     "query": "[subject]"
+   }
+   
+   RESPONSE:
+   {
+     "total_found": 2,
+     "results": [
+       { "page": "[type]/[subject]", "match_score": 0.98, "snippet": "..." },
+       { "page": "[type]/[subject-variant]", "match_score": 0.72, "snippet": "..." }
+     ]
+   }
+   
+   # Agent Decision (NOT skill):
+   IF results[0].match_score > 0.95:
+     → High confidence match
+     → POST on pm-idea: "✅ Research found: [type]/[subject]"
+     → Link to wiki page
+     → Don't create new research work item
+   
+   ELSE IF results[0].match_score > 0.70:
+     → Moderate confidence
+     → POST on pm-idea: "Found possibly related research (score: 0.72). Review: [link]"
+     → Create research item anyway for new/fresh research
+   
+   ELSE:
+     → No relevant results
+     → Proceed to create research item
+   ```
+
+5. **Identify research needs** (Post as comment on `pm-idea`):
+   - What personas are affected? (Search wiki)
+   - What journey stages? (Search wiki)
+   - What competitive research exists? (Search wiki)
+   - **For each MISSING research item** (not found in wiki), create a `research` work item with REQUIRED labels:
      ```bash
      gh issue create \
-       --label "research:" \
+       --label "research" \
        --label "pm-idea-$PM_IDEA_NUMBER" \
        --title "[research]: [Persona Name] for [Idea Title]" \
        --body "# Research Work Item
-   
+
    Conduct 5+ customer interviews with [Persona Name] to understand:
    - Primary job to be done
    - Key frustrations and goals
    - Usage context and constraints
-   
-   Update Research Wiki: Personas-[Persona-Name] and Journey-Maps-[Persona-Name]
-   
-   Close this issue when research is documented in Wiki.
-   
-   Linked pm-idea: #$PM_IDEA_NUMBER
-   Due: 2 weeks from now"\n     ```
-     
-   **CRITICAL:** Always add both labels when creating research: items:
-   - `research:` — marks it as a research work item
-   - `pm-idea-[THIS_NUMBER]` — links it back to this pm-idea (allows orchestrator and PM Phase 2 to discover it)
 
-5. **Create `strategic-opportunity` issue (PROVISIONAL)**:
+   Upon completion:
+   1. Write findings to Wiki with metadata (status, confidence, findings_summary)
+   2. Close this issue
+
+   Linked pm-idea: #$PM_IDEA_NUMBER
+   Due: 2 weeks from now"
+     ```
+
+6. **Note: Research Agent Will Handle Wiki Writing**
+
+   When research is complete, the Research Agent will:
+   1. Call wiki-manager write-content to store findings (with metadata: status, confidence, findings_summary, github_issue)
+   2. Skill automatically updates index; no separate call needed
+
+7. **Create `strategic-opportunity` issue (PROVISIONAL)**:
    - **Title**: Strategic Opportunity - [Idea Title] (PENDING RESEARCH)
    - **Label**: `pm-opportunity`, `strategic-opportunity`, `pm-provisional-champion`
    - **Body**: 
@@ -147,6 +190,7 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
      - Research item #Z: [Competitive positioning]
      
      **Research Timeline:** Due 2 weeks from now
+     
      
      Once research items close, PM agent will conduct Phase 2 validation.
      ```
@@ -212,34 +256,24 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
    }
    ```
 
-   **Read each research page:**
+   **Retrieve each research page:**
 
-   For each page (Personas-[Name], Journey-Maps-[Name], Research-to-Decision-Index):
-
-   CALL SKILL: `wiki-manager`
-   ```json
+   For each completed research item (Personas, Journey-Maps, etc.), access the wiki page directly:
+   
+   Option 1: Search wiki to find the page:
+   ```bash
+   CALL SKILL: wiki-manager
    {
-     "action": "read-page",
+     "action": "search",
      "repo": "[owner]/[repo]",
-     "page_name": "Personas-[PersonaName]"
+     "query": "[Persona Name from Research Item]"
    }
    ```
 
-   Expected response:
-   ```json
-   {
-     "status": "success",
-     "page": "Personas-[PersonaName]",
-     "content": "# [PersonaName]...\nResearch Source: Issue #[N]",
-     "exists": true,
-     "size_bytes": 2048
-   }
-   ```
-
-   If `exists` is false or status is "error":
-   ```
-   Post comment: "ERROR: Expected Wiki page not found: Personas-[PersonaName]. Research may not be complete. Investigating..."
-   DO NOT PROCEED. Return to Orchestrator to check if research: item actually closed properly.
+   Option 2: Fetch directly from wiki repo if page structure is known:
+   ```bash
+   git clone https://github.com/[owner]/[repo].wiki.git
+   cat Personas/[Persona-Name].md
    ```
 
    **Extract Key Data from Each Page:**

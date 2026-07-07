@@ -36,7 +36,7 @@ You do not need to manage git operations directly. Simply call the skill in Step
 - No other Research Agents are simultaneously editing wiki pages
 - No race conditions on wiki updates (locks not needed)
 - Your wiki updates will NOT collide with other agents' updates
-- When you update `Personas-[Name]`, `Journey-Maps-[Name]`, `Research-to-Decision-Index`, you are the sole writer
+- When you update wiki content via write-content, you are the sole writer
 
 **Why sequential?**
 - Multiple agents writing to same wiki pages simultaneously = data corruption risk
@@ -616,6 +616,41 @@ GitHub issue with:
 
 ### Execution Steps
 
+#### Step 0 (MANDATORY - NEW): Check Wiki for Existing Research
+
+**CRITICAL:** Before starting any research, check if this work has already been done. This prevents redundant interviews and wasted effort.
+
+```bash
+# Check if persona/topic already researched
+CALL SKILL: wiki-manager
+{
+  "action": "check-index-status",
+  "repo": "[owner]/[repo]",
+  "search_type": "persona", // or "competitive", "trend", etc.
+  "search_term": "[Persona Name or Topic]"
+}
+
+# Possible outcomes:
+#
+# A. Found AND status="Complete":
+#    - Read existing wiki page (get all findings)
+#    - POST COMMENT: "✅ Research already complete. Using existing findings from [Wiki Link]"
+#    - Link issue to existing wiki page
+#    - CLOSE research work item (reason: "completed - used existing research")
+#
+# B. Found AND status="In Progress":
+#    - POST COMMENT: "Research already underway. This issue is a duplicate."
+#    - Link issues together
+#    - CLOSE this research item (reason: "duplicate of #[existing-issue]")
+#
+# C. Found AND status="Deferred":
+#    - POST COMMENT: "Research deferred until [date]. Deferring this item too."
+#    - CLOSE with reason: "deferred"
+#
+# D. NOT found OR similarity <0.7:
+#    - Proceed to Step 1 (research scoping)
+```
+
 #### Step 1: Research Scoping & Hypothesis Formation
 1. Read research task
 2. Identify research questions
@@ -714,119 +749,98 @@ Create/Update Research Wiki pages with **explicit evidence hierarchy and confide
 
 #### Step 4b: Wiki Update Procedure (Using wiki-manager Skill)
 
-**⚠️ MANDATORY:** Complete ALL wiki updates BEFORE closing the research issue. If no wiki pages are updated, PM Phase 2 will have no research data and cannot validate the decision.
+**⚠️ MANDATORY:** Complete ALL wiki updates BEFORE closing the research issue.
 
-Use the centralized `wiki-manager` skill for all wiki operations. This skill handles cloning, updating, pushing, and cleanup automatically.
+Use the `wiki-manager` skill with the **expert librarian model**. Agents specify WHAT to store (content_type + subject). Skill owns placement, organization, and may reorganize autonomously.
 
-**PRE-FLIGHT CHECK: Verify Wiki is Accessible**
+**For each research output:**
 
-Before starting wiki updates, verify GitHub Wiki is enabled:
-
-CALL SKILL: `wiki-manager`
-```json
-{
-  "action": "init-check",
-  "repo": "[owner]/[repo]"
-}
-```
-
-Expected response:
-```json
-{
-  "status": "success",
-  "has_wiki": true,
-  "can_clone": true,
-  "token_valid": true
-}
-```
-
-If `has_wiki` is false, GitHub Wiki is not enabled. Enable it in repo Settings → Features → Wiki, then retry.
-
-**For each Wiki page needed (Personas-[Name], Journey-Maps-[Name], Research-to-Decision-Index, Strategic-Findings-[Quarter]):**
-
-**1. CREATE OR UPDATE: Personas-[PersonaName]**
+**1. WRITE: Research Content (Including Metadata)**
 
 CALL SKILL: `wiki-manager`
 ```json
 {
-  "action": "write-page",
+  "action": "write-content",
   "repo": "[owner]/[repo]",
-  "page_name": "Personas-[PersonaName]",
-  "content": "# [PersonaName]\n\n## Demographics\n[from Step 4a]\n\n## Jobs to be Done\n[from Step 4a]\n\n## Frustrations\n[from Step 4a]\n\nResearch Source: Issue #[this-issue-number]"
+  "content_type": "[type]",
+  "subject": "[subject]",
+  "content": "# [Subject]\n\n## Key Findings\n[research findings]\n\n## Methodology\n[how this was researched]\n\n## Evidence\nIssue #[this-issue-number]\nConfidence: HIGH|MEDIUM|LOW\nEvidence: N=[X] data points",
+  "status": "Complete",
+  "confidence": "HIGH|MEDIUM|LOW",
+  "github_issue": "#[this-issue-number]",
+  "findings_summary": "N=[X] data points. Key finding: [one-liner]"
 }
 ```
 
-Expected response:
+**Skill Response (Standard):**
 ```json
 {
   "status": "success",
-  "page": "Personas-[PersonaName]",
-  "wiki_url": "https://github.com/[owner]/[repo]/wiki/Personas-[PersonaName]",
   "committed": true,
-  "message": "Created/updated Personas-[PersonaName].md"
+  "reorganized": false
 }
 ```
 
-If status is "error": Post comment "Wiki update failed for Personas-[PersonaName]: [error message]. Aborting research task." and close issue with label `wiki-error`.
-
-**2. CREATE OR UPDATE: Journey-Maps-[PersonaName]**
-
-CALL SKILL: `wiki-manager`
+**Skill Response (With Reorganization):**
 ```json
 {
-  "action": "write-page",
-  "repo": "[owner]/[repo]",
-  "page_name": "Journey-Maps-[PersonaName]",
-  "content": "# [PersonaName] - Journey Map\n\n## Stage 1: Discovery\n[findings from Step 4a]\n\n## Stage 2: Consideration\n[findings from Step 4a]\n\n## Stage 3: Regular Usage\n[findings from Step 4a]\n\nResearch Source: Issue #[this-issue-number]"
+  "status": "success",
+  "committed": true,
+  "reorganized": true,
+  "reorganization_summary": {
+    "changes_made": [...],
+    "audit_result": "all_pages_accounted_for",
+    "gap_analysis": { "fixed": true },
+    "index_updated": true
+  }
 }
 ```
 
-**3. CREATE OR UPDATE: Research-to-Decision-Index**
+**Key Point:** You specify content AND metadata (status, confidence, findings_summary, github_issue). Skill writes content, updates index automatically, and may reorganize the wiki internally to maintain health. Either way, content is committed and index quality is maintained.
 
-CALL SKILL: `wiki-manager`
-```json
-{
-  "action": "update-page",
-  "repo": "[owner]/[repo]",
-  "page_name": "Research-to-Decision-Index",
-  "content": "## [PersonaName] - [Decision]\n| Problem | Persona | Stage | Research Finding | Evidence Source | Confidence | Strategic Implication |\n|---------|---------|-------|-----------------|-----------------|------------|----------------------|\n| [Problem] | [PersonaName] | [Stage] | [Finding] | Issue #[this-issue-number], N=X | [HIGH/MEDIUM/LOW] | [Implication] |",
-  "append": true
-}
-```
+---
 
-**4. Verify All Updates**
+**2. Verify Write Succeeded**
 
 Post comment on research issue:
 ```
-✅ Wiki pages updated successfully
-- Personas-[PersonaName]: https://github.com/[owner]/[repo]/wiki/Personas-[PersonaName]
-- Journey-Maps-[PersonaName]: https://github.com/[owner]/[repo]/wiki/Journey-Maps-[PersonaName]
-- Research-to-Decision-Index: https://github.com/[owner]/[repo]/wiki/Research-to-Decision-Index
+✅ Research complete and indexed
+- Content: [stored_at from write-content response]
+- Index: Updated with findings
 
-All research findings documented and committed to GitHub Wiki. Ready for PM Phase 2 validation.
+Ready for next phase validation.
 ```
 
-5. **VERIFY ALL PAGES UPDATED:**
+4. **VERIFY ALL UPDATES BEFORE CLOSING:**
    
    Before proceeding to Step 5 (closure), confirm:
-   - ✅ All required wiki pages exist (create if missing)
-   - ✅ All new research findings are added to wiki
-   - ✅ All wiki pages include evidence counts (N=[X])
-   - ✅ All wiki pages include confidence levels (HIGH/MEDIUM/LOW)
+   
+   Before proceeding to Step 5 (closure), confirm:
+   - ✅ write-content returned `committed=true`
+   - ✅ Note if `reorganized: true` occurred (informational; skill handled index update)
+   - ✅ Verify content was actually written using search()
+   - ✅ All pages include evidence counts (N=[X])
+   - ✅ All pages include confidence levels
    - ✅ All wiki pages link back to research issue
    - ✅ Research issue links to all updated wiki pages
+   
+   **Verification steps:**
+   ```bash
+   # Verify content was written
+   CALL wiki-manager: search("[subject]")
+   # Confirm your content appears in results with high match_score
+   ```
    
    Post summary comment on research issue:
    ```
    ## Wiki Update Summary ✅
    
-   All required wiki pages updated:
-   - Personas-[Name]: [N] data points, Confidence: [HIGH]
-   - Journey-Maps-[Name]: [N] data points, Confidence: [MEDIUM]
-   - Research-to-Decision-Index: Entry added linking [problem] → [finding] → [decision]
-   - Strategic-Findings-[Quarter]: Top 3 findings recorded
+   All required content updated and verified:
+   - [Content Type]: [subject] with [N] data points, Confidence: [HIGH|MEDIUM|LOW]
+   - ✅ Verified via search() - content found
+   - Index: Automatically updated with metadata (status, confidence, findings_summary)
    
-   Ready for PM Phase 2 validation.
+   Ready for next phase validation.
    ```
 
 **IF ANY WIKI PAGE FAILS TO UPDATE:**
