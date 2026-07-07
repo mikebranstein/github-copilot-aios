@@ -43,7 +43,7 @@ This is a **strategic product leadership role**. You will:
 
 This agent can run **autonomously** on GitHub issues with the `pm-idea` label. Users input a 1-3 sentence feature idea; the agent runs through discovery, validation, and decision-making automatically.
 
-**First Run Setup:** On your first execution, this agent creates the Research Wiki infrastructure in GitHub (see "First Run: Research Wiki Setup" section below). All subsequent runs will reference and update the research wiki.
+**First Run Setup:** On your first execution, verify Research Wiki is accessible using the `wiki-manager` skill (templates/skills/wiki-manager.skill.md). All subsequent runs will reference and read the research wiki. The wiki-manager skill handles all cloning, reading, and verification automatically.
 
 ### Input & Output Contract
 
@@ -94,9 +94,9 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
    - Document customer signals found
    - Assess strategic fit (high-level: does this align with product pillars?)
    - **Decision gate:** Is there a credible customer signal? Does strategic fit seem plausible?
-     - If **NO credible signal** → Apply label `pm-blocked` + close pm-idea
+     - If **NO credible signal** → Apply label `pm-blocked`, remove `pm-validating`, close pm-idea
        - Close comment: "Decision: BLOCK. No credible customer signal or strategic fit. Closing pm-idea."
-     - If **YES signal but uncertainty** → Apply label `pm-deferred` + close pm-idea
+     - If **YES signal but uncertainty** → Apply label `pm-deferred`, remove `pm-validating`, close pm-idea
        - Close comment: "Valid direction but not urgent. Deferred for quarterly re-evaluation."
 
 3. **If YES signal AND strategic fit appears sound** → Proceed to research gates
@@ -105,23 +105,29 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
    - What personas are affected? (Check Wiki for existing personas)
    - What journey stages? (Check Wiki for related journey maps)
    - What competitive research exists? (Check Research-to-Decision Index)
-   - **For each missing research item**, create a `research:` work item:
-     ```
-     Issue Title: "Research: [Persona Name] for [Idea Title]"
-     Label: research, pm-work
-     Body: 
-     Conduct 5+ customer interviews with [Persona Name] to understand:
-     - Primary job to be done
-     - Key frustrations and goals
-     - Usage context and constraints
+   - **For each missing research item**, create a `research:` work item with REQUIRED labels:
+     ```bash
+     gh issue create \
+       --label "research:" \
+       --label "pm-idea-$PM_IDEA_NUMBER" \
+       --title "research: [Persona Name] for [Idea Title]" \
+       --body "# Research Work Item
+   
+   Conduct 5+ customer interviews with [Persona Name] to understand:
+   - Primary job to be done
+   - Key frustrations and goals
+   - Usage context and constraints
+   
+   Update Research Wiki: Personas-[Persona-Name] and Journey-Maps-[Persona-Name]
+   
+   Close this issue when research is documented in Wiki.
+   
+   Linked pm-idea: #$PM_IDEA_NUMBER
+   Due: 2 weeks from now"\n     ```
      
-     Update Research Wiki: Personas-[Persona-Name] and Journey-Maps-[Persona-Name]
-     
-     Close this issue when research is documented in Wiki.
-     
-     Linked pm-idea: #N
-     Due: 2 weeks from now
-     ```
+   **CRITICAL:** Always add both labels when creating research: items:
+   - `research:` — marks it as a research work item
+   - `pm-idea-[THIS_NUMBER]` — links it back to this pm-idea (allows orchestrator and PM Phase 2 to discover it)
 
 5. **Create `strategic-opportunity` issue (PROVISIONAL)**:
    - **Title**: Strategic Opportunity - [Idea Title] (PENDING RESEARCH)
@@ -146,10 +152,20 @@ Execute when: Orchestrator finds a `pm-idea` issue with no labels yet
      ```
    - **DO NOT create any feature-request issues** (PO's responsibility only)
 
-6. **Update state on `pm-idea`**:
-   - Apply label: `pm-validating` (shows it's in progress)
-   - Add link comment to strategic-opportunity: "Research validation in progress. See linked strategic-opportunity for research items. This issue will remain open until research completes."
-   - **DO NOT CLOSE pm-idea** (leave open until Phase 2)
+6. **Update state on `pm-idea`** (CRITICAL — exact label transitions):
+   ```bash
+   # REMOVE pm-validating (was set by orchestrator when spawning Phase 1)
+   gh issue edit $PM_IDEA_NUMBER --remove-label "pm-validating"
+   
+   # ADD pm-provisional-champion (signals research executing, Phase 2 pending)
+   gh issue edit $PM_IDEA_NUMBER --add-label "pm-provisional-champion"
+   
+   # Post link comment
+   gh issue comment $PM_IDEA_NUMBER --body "✅ Phase 1 complete. Research validation in progress. Strategic-opportunity #$STRATEGIC_OPP_NUMBER created. pm-idea will remain open until Phase 2 completes."
+   ```
+   
+   **Final label state of pm-idea after Phase 1 success:** `pm-idea + pm-provisional-champion` (OPEN)
+   **DO NOT CLOSE pm-idea** — it must stay open until Phase 2 is done.
 
 7. **Output cycle summary**:
    ```
@@ -173,103 +189,179 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
    - Document confidence level (N interviews, which segments covered)
    - Identify any gaps or contradictions
 
-2b. **Verify and Read Completed Research Wiki - Procedural Steps:**
+2b. **Verify and Read Completed Research Wiki - Using wiki-manager Skill:**
 
    **CRITICAL:** Do NOT skip this. Research Wiki contains all data needed to validate CHAMPION decision.
 
-   **Access GitHub Wiki:**
-   ```bash
-   # Open the repository Wiki (usually at: github.com/[owner]/[repo]/wiki)
-   gh wiki view Home  # Verify Wiki is accessible
+   **Use wiki-manager skill to list and read all research pages:**
+
+   CALL SKILL: `wiki-manager`
+   ```json
+   {
+     "action": "list-pages",
+     "repo": "[owner]/[repo]"
+   }
    ```
 
-   **For each research: item that was closed, find corresponding Wiki pages:**
-
-   Research item closed: `research: [Persona Name] for [Idea]`
-   → Look for these Wiki pages:
-   - `Personas-[PersonaName]`
-   - `Journey-Maps-[PersonaName]` (if created)
-   - `Interview-Transcripts-[Quarter]` (if created)
-   - `Research-to-Decision-Index` (main findings index)
-   - `Strategic-Findings-[Quarter]` (top 3 insights)
-
-   **Read each page - Verify Update:**
-   ```bash
-   # Check Personas page was updated
-   gh wiki view "Personas-[PersonaName]"
-   
-   # Look for:
-   # ✅ Timestamp showing recent update (last 2 weeks)
-   # ✅ Evidence counts (N=[X] support tickets, N=[Y] interviews)
-   # ✅ Confidence levels (HIGH/MEDIUM/LOW assigned to each finding)
-   # ✅ Research source link (reference to research: issue #[N])
+   Expected response:
+   ```json
+   {
+     "status": "success",
+     "pages": ["Personas-[Name]", "Journey-Maps-[Name]", "Research-to-Decision-Index", ...],
+     "count": 4
+   }
    ```
 
-   If page NOT found or NOT updated:
+   **Read each research page:**
+
+   For each page (Personas-[Name], Journey-Maps-[Name], Research-to-Decision-Index):
+
+   CALL SKILL: `wiki-manager`
+   ```json
+   {
+     "action": "read-page",
+     "repo": "[owner]/[repo]",
+     "page_name": "Personas-[PersonaName]"
+   }
    ```
-   Post comment on strategic-opportunity: "ERROR: Expected Wiki page not found or not updated: Personas-[PersonaName]. Research may not be complete. Investigating..."
+
+   Expected response:
+   ```json
+   {
+     "status": "success",
+     "page": "Personas-[PersonaName]",
+     "content": "# [PersonaName]...\nResearch Source: Issue #[N]",
+     "exists": true,
+     "size_bytes": 2048
+   }
+   ```
+
+   If `exists` is false or status is "error":
+   ```
+   Post comment: "ERROR: Expected Wiki page not found: Personas-[PersonaName]. Research may not be complete. Investigating..."
    DO NOT PROCEED. Return to Orchestrator to check if research: item actually closed properly.
    ```
 
    **Extract Key Data from Each Page:**
 
    **From Personas-[PersonaName]:**
-   - Primary job to be done (copy exact phrasing)
+   - Primary job to be done (copy exact phrasing from page)
    - Top 3 frustrations (with frequency % if available)
-   - Evidence count: N=[X] (how many support tickets/interviews)
+   - Evidence count: N=[X] (from Research Source: Issue #[N] link)
    - Confidence: [HIGH/MEDIUM/LOW] assigned by Research Agent
 
    **From Journey-Maps-[PersonaName]:**
    - Stage with highest friction (e.g., "Stage 3: Regular Usage, 60% of users hit blocker X")
-   - Churn signals (if noted)
+   - Churn signals (if noted in page)
    - Customer impact quantified (if available: % affected, time lost, revenue impact)
 
    **From Research-to-Decision-Index:**
-   ```
-   Find row(s) matching this opportunity:
-   | Problem | Persona | Stage | Research Finding | Evidence Source | Confidence | Strategic Implication |
-   | [Match] | [Pers]  | [S]   | [Finding]        | [Source, N=X]   | [HIGH]     | [Action implication] |
-   ```
-
-   **From Strategic-Findings-[Quarter]:**
-   - Top 3 research findings for this topic
-   - Market opportunity quantification (TAM/SAM/SOM with confidence)
-   - Risk assessment (technical/org/timing barriers)
+   - Find row(s) matching this pm-idea opportunity
+   - Verify: Problem, Persona, Stage, Research Finding, Evidence Source (Issue #[N]), Confidence level
 
    **Post Wiki Verification Comment:**
    ```
    ✅ Research Wiki Verified - Ready for Phase 2 Validation
 
    Wiki Pages Reviewed:
-   - Personas-[Name]: Evidence N=[X], Confidence [HIGH]
-   - Journey-Maps-[Name]: [X%] users hit Stage [N] friction
-   - Research-to-Decision-Index: [X] findings linked to decision
-   - Strategic-Findings-[Quarter]: Market opportunity quantified
+   - Personas-[Name]: Found + contains evidence and confidence level
+   - Journey-Maps-[Name]: Found + documents customer friction points
+   - Research-to-Decision-Index: Found + entry linked to this opportunity
 
    Proceeding to final validation with research evidence.
    ```
 
-3. **Evaluate Follow-On Research Needs (Before final decision):**
+3. **Evaluate Follow-On Research Needs (Detailed Procedure):**
    
-   Read research comments for severity-rated Next Steps Assessment:
-   - Are there any CRITICAL follow-on research items identified?
-   - CRITICAL = must validate before CHAMPION decision can be made
+   **STEP 3.1: Find research: issues linked to this pm-idea**
    
-   If CRITICAL items exist:
+   Query for all research items tagged with this pm-idea (passed by Orchestrator):
+   ```bash
+   # Orchestrator passes: PM_IDEA_NUMBER=123, RESEARCH_ISSUES="1024 1025 1026"
+   
+   # Parse research issue list
+   IFS=' ' read -ra RESEARCH_ARRAY <<< "$RESEARCH_ISSUES"
+   echo "Research issues to review: ${RESEARCH_ARRAY[@]}"
    ```
-   Decision: DEFER Phase 2 decision, spawn follow-on research
-   - Create issue: "Research: [Topic] - Follow-On Critical Validation"
-   - Label: follow-on-research
-   - Body: [Copy CRITICAL next step from research comments]
-   - Note: "Linked to initial research issue #[N]. This is the only follow-on research allowed for this pm-idea."
-   - Post comment: "Spawning 1 follow-on research item to validate CRITICAL assumption before Phase 2 decision."
-   - RETURN to Orchestrator step 4 (monitor research completion)
+
+   If research issues NOT provided:
+   ```bash
+   # Fallback: Query by label
+   RESEARCH_ISSUES=$(gh issue list \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --label "research:" \
+     --state closed \
+     --json number \
+     --jq '.[] | .number')
+   ```
+
+   **STEP 3.2: Read closure comments from each research: issue**
+   
+   For each research: issue found:
+   ```bash
+   for issue_num in $RESEARCH_ISSUES; do
+     # Get comments (newest last, so last comment is usually the research summary)
+     COMMENTS=$(gh issue view #$issue_num --json comments --jq '.comments')
+     
+     # Extract last comment (should contain Next Steps Assessment)
+     LAST_COMMENT=$(echo $COMMENTS | jq '.[-1].body' -r)
+   done
+   ```
+
+   **STEP 3.3: Parse for CRITICAL next steps**
+   
+   Loop through comments, search for section:
+   ```markdown
+   **Next Steps Assessment (Severity-Rated for Follow-On Research):**
+   
+   **CRITICAL - MUST VALIDATE BEFORE CHAMPION DECISION:**
    ```
    
-   If NO CRITICAL items (only HIGH/MEDIUM/LOW):
+   ```bash
+   if echo "$LAST_COMMENT" | grep -q "CRITICAL - MUST VALIDATE"; then
+     echo "Found CRITICAL follow-on research needed"
+     HAS_CRITICAL=true
+   else
+     HAS_CRITICAL=false
+   fi
    ```
-   Proceed to final validation (step 4 below)
-   Document HIGH/MEDIUM/LOW as Post-Launch Research Recommendations
+
+   Extract all text under "CRITICAL" section:
+   ```bash
+   CRITICAL_TEXT=$(echo "$LAST_COMMENT" | sed -n '/CRITICAL - MUST VALIDATE/,/HIGH - Strongly Recommended/p')
+   ```
+
+   **STEP 3.4: Make decision**
+   
+   If CRITICAL items found ($HAS_CRITICAL == true):
+   ```bash
+   # Create follow-on research issue (must have both labels so orchestrator can detect it)
+   FOLLOWON_ISSUE=$(gh issue create \
+     --label "research:" \
+     --label "follow-on-research" \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --title "research: Follow-On Critical Validation for #$PM_IDEA_NUMBER" \
+     --body "# Follow-On Research - Critical Validation\n\n$CRITICAL_TEXT\n\nLinked to: #$PM_IDEA_NUMBER (initial research: #$FIRST_RESEARCH_ISSUE)\n\nThis is Round 2 research. Only 1 follow-on round is allowed.")
+   
+   # REMOVE pm-finalizing so orchestrator knows Phase 2 is paused (not crashed)
+   # pm-idea keeps pm-provisional-champion — stays OPEN
+   gh issue edit $PM_IDEA_NUMBER --remove-label "pm-finalizing"
+   
+   # Post comment on pm-idea
+   gh issue comment $PM_IDEA_NUMBER --body "⏸️ Phase 2 PAUSED: Follow-on research required for CRITICAL validation. Created research issue: $FOLLOWON_ISSUE. Orchestrator will process this then re-run Phase 2."
+   
+   # Exit — orchestrator detects new open research: item with follow-on-research label
+   # and loops back to Step 3b automatically
+   exit 0
+   ```
+   
+   If NO CRITICAL items ($HAS_CRITICAL == false):
+   ```bash
+   # Extract HIGH/MEDIUM/LOW items for post-launch documentation
+   POST_LAUNCH=$(echo "$LAST_COMMENT" | sed -n '/HIGH - Strongly/,/LOW - Exploratory/p')
+   
+   # Proceed to final validation (step 4 below)
+   echo "No CRITICAL items. Proceeding to Phase 2 final decision."
    ```
 
 4. **Final validation** (Post as comment on strategic-opportunity):
@@ -304,52 +396,96 @@ Execute when: Orchestrator detects all linked research items on `pm-idea` are no
      **Research Pages:**
      - [Link] Personas-[Name]
      - [Link] Journey-Maps-[Name]
-     - [Link] Interview-Transcripts-[Quarter]
      
      **Decision:** CHAMPION ✅ (Validated with customer research)
      Ready for PO prioritization.
      ```
-   - Apply label: `pm-opportunity` (remove `pm-provisional-champion`)
+   - Update strategic-opportunity labels (exact transitions):
+     ```bash
+     gh issue edit $STRATEGIC_OPP_NUMBER --remove-label "pm-provisional-champion"
+     # strategic-opportunity stays OPEN with labels: pm-opportunity + strategic-opportunity
+     ```
+   - Update pm-idea labels and close (exact transitions):
+     ```bash
+     gh issue edit $PM_IDEA_NUMBER --remove-label "pm-provisional-champion" --remove-label "pm-finalizing"
+     gh issue edit $PM_IDEA_NUMBER --add-label "pm-opportunity"
+     gh issue close $PM_IDEA_NUMBER --comment "CHAMPION ✅ — Validated with customer research. See strategic-opportunity #$STRATEGIC_OPP_NUMBER for findings. Closing pm-idea."
+     ```
+   - **Final label state of pm-idea:** `pm-idea + pm-opportunity` (CLOSED)
+   - **Final label state of strategic-opportunity:** `strategic-opportunity + pm-opportunity` (OPEN — for PO)
+   - Notify PO: Post comment on strategic-opportunity: "Ready for PO prioritization. Research validated."
    - **DO NOT create any feature-request issues** (PO creates those, never PM)
-   - Close pm-idea with comment:
-     ```
-     CHAMPION ✅ - Validated with customer research
-     See strategic-opportunity #M for research findings and decision.
-     Closing pm-idea.
-     ```
-   - Notify PO: Post comment on strategic-opportunity: "Ready for PO prioritization. Research findings and validation complete."
 
-5. **Revise to DEFER or BLOCK** (if research changes the picture):
+6. **Revise to DEFER** (if research reveals not ready):
    - Update strategic-opportunity body with finding and revised decision
-   - Apply label: `pm-deferred` or `pm-blocked`
-   - Close pm-idea with comment:
+   - Update strategic-opportunity labels and CLOSE it:
+     ```bash
+     gh issue edit $STRATEGIC_OPP_NUMBER --remove-label "pm-provisional-champion" --remove-label "pm-opportunity"
+     gh issue edit $STRATEGIC_OPP_NUMBER --add-label "pm-deferred"
+     gh issue close $STRATEGIC_OPP_NUMBER --comment "DEFERRED — Research revealed this is not ready. See pm-idea #$PM_IDEA_NUMBER for details."
      ```
-     Research revealed: [Finding that changed decision]
-     Final decision: [DEFER/BLOCK]
-     See strategic-opportunity #M for research summary.
-     Closing pm-idea.
+   - Update pm-idea labels and close:
+     ```bash
+     gh issue edit $PM_IDEA_NUMBER --remove-label "pm-provisional-champion" --remove-label "pm-finalizing"
+     gh issue edit $PM_IDEA_NUMBER --add-label "pm-deferred"
+     gh issue close $PM_IDEA_NUMBER --comment "DEFER — Research revealed: [finding that changed decision]. Closing pm-idea."
      ```
+   - **Final label state of pm-idea:** `pm-idea + pm-deferred` (CLOSED)
+   - **Final label state of strategic-opportunity:** `strategic-opportunity + pm-deferred` (CLOSED)
 
-6. **Output cycle summary**:
+7. **Revise to BLOCK** (if research reveals fundamental misfit):
+   - Update strategic-opportunity body with finding and revised decision
+   - Update strategic-opportunity labels and CLOSE it:
+     ```bash
+     gh issue edit $STRATEGIC_OPP_NUMBER --remove-label "pm-provisional-champion" --remove-label "pm-opportunity"
+     gh issue edit $STRATEGIC_OPP_NUMBER --add-label "pm-blocked"
+     gh issue close $STRATEGIC_OPP_NUMBER --comment "BLOCKED — Research revealed fundamental misfit. See pm-idea #$PM_IDEA_NUMBER for details."
+     ```
+   - Update pm-idea labels and close:
+     ```bash
+     gh issue edit $PM_IDEA_NUMBER --remove-label "pm-provisional-champion" --remove-label "pm-finalizing"
+     gh issue edit $PM_IDEA_NUMBER --add-label "pm-blocked"
+     gh issue close $PM_IDEA_NUMBER --comment "BLOCK — Research revealed: [finding that changed decision]. Closing pm-idea."
+     ```
+   - **Final label state of pm-idea:** `pm-idea + pm-blocked` (CLOSED)
+   - **Final label state of strategic-opportunity:** `strategic-opportunity + pm-blocked` (CLOSED)
+
+8. **Output cycle summary**:
    ```
    PM Orchestrator - Phase 2 (Final Validation)
    pm-idea #N: [Title] → Strategic-opportunity #M
    Status: RESEARCH VALIDATED → [CHAMPION/DEFER/BLOCK]
-   Research completed: 3 items (N total interviews)
-   Action: [Ready for PO | Deferred for Q[X] review | Blocked]
+   Research completed: N items
+   pm-idea: CLOSED with [pm-opportunity/pm-deferred/pm-blocked]
+   strategic-opportunity: [OPEN for PO / CLOSED with pm-deferred / CLOSED with pm-blocked]
    ```
 
 ### State Tracking
 
 State stored in GitHub issue (comments + labels + Projects + linked research items):
 
-**Labels** (pm-idea issues):
-- `pm-idea`: Submitted, awaiting processing
-- `pm-validating`: Phase 1 in progress (quick validation)
-- `pm-provisional-champion`: Phase 1 complete, research items created, awaiting Phase 2
-- `pm-deferred`: Valid but not strategic now (no further research needed)
-- `pm-blocked`: Doesn't fit or weak signal (no further research needed)
-- `pm-opportunity`: Phase 2 complete, CHAMPION validated with research (ready for PO)
+**Labels** (pm-idea issues — only one state label active at a time):
+- `pm-idea`: Submitted, awaiting Phase 1
+- `pm-validating`: Phase 1 in progress (transient — removed by PM Phase 1 on exit)
+- `pm-provisional-champion`: Phase 1 passed, research executing or awaiting Phase 2
+- `pm-finalizing`: Phase 2 in progress (transient — added by orchestrator, removed by PM Phase 2 on exit)
+- `pm-opportunity`: Phase 2 CHAMPION validated with research (closed, terminal)
+- `pm-deferred`: DEFER at Phase 1 OR Phase 2 (closed, terminal)
+- `pm-blocked`: BLOCK at Phase 1 OR Phase 2 (closed, terminal)
+
+**Labels** (research: issues):
+- `research:`: Identifies it as a research work item
+- `pm-idea-[NUMBER]`: Links it to its parent pm-idea (required for discovery)
+- `follow-on-research`: Marks it as Round 2 follow-on (not initial)
+- `research-complete`: Research finished successfully (closed)
+- `wiki-error`: Wiki operations failed during research (closed, requires investigation)
+
+**Labels** (strategic-opportunity issues):
+- `strategic-opportunity`: Permanent identifier (never removed)
+- `pm-opportunity`: Active opportunity (present until DEFER/BLOCK, then removed)
+- `pm-provisional-champion`: Pending Phase 2 (removed when Phase 2 completes any outcome)
+- `pm-deferred`: Phase 2 deferred — issue closed
+- `pm-blocked`: Phase 2 blocked — issue closed
 
 **Research tracking** (research: labeled issues):
 - `research: [Persona Name]`: Work item for research phase 1→2 gate

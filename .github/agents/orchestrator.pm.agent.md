@@ -16,6 +16,12 @@ You are the orchestrator for **Product Manager discovery and validation**. Your 
 
 This loop runs **independently** and concurrently with the PO orchestrator. PM never blocks PO; PO never blocks PM. Both run in separate terminals, processing opportunities sequentially (PM) and asynchronously (PO).
 
+**Wiki Operations:** All wiki management (cloning, reading, writing, updating) is handled centrally by the `wiki-manager` skill (templates/skills/wiki-manager.skill.md). Research Agent and PM Agent both call this skill for all wiki operations. This guarantees:
+- No concurrent wiki edit conflicts (skill manages isolation)
+- Atomic operations (all-or-nothing)
+- Consistent error handling
+- Automatic temp directory cleanup
+
 **CRITICAL BOUNDARY:** This orchestrator's PM agent creates only `strategic-opportunity` issues. It NEVER creates `feature-request` issues. Those are PO's responsibility exclusively.
 
 ---
@@ -38,97 +44,313 @@ No concurrent processing across pm-ideas. Each pm-idea goes completely through a
 
 ---
 
+### Complete Issue State Matrix
+
+#### pm-idea Label Lifecycle
+
+```
+ENTRY:  pm-idea (OPEN, user submitted)
+          │
+          ▼ Orchestrator adds pm-validating, spawns PM Phase 1
+        pm-idea + pm-validating (OPEN)
+          │
+          ├─── Phase 1: BLOCK ──► REMOVE pm-validating, ADD pm-blocked → CLOSE
+          │                        strategic-opportunity: NOT CREATED
+          │
+          ├─── Phase 1: DEFER ──► REMOVE pm-validating, ADD pm-deferred → CLOSE
+          │                        strategic-opportunity: NOT CREATED
+          │
+          └─── Phase 1: CHAMPION
+                │  REMOVE pm-validating, ADD pm-provisional-champion (OPEN)
+                │  research: items created (labeled research: + pm-idea-N)
+                │  strategic-opportunity created (OPEN)
+                │
+                ▼ research: items executing (all OPEN)
+              pm-idea + pm-provisional-champion (OPEN)
+                │
+                ▼ all research: items CLOSED (research-complete label)
+              pm-idea + pm-provisional-champion (OPEN, all research done)
+                │
+                ▼ Orchestrator adds pm-finalizing, spawns PM Phase 2
+              pm-idea + pm-provisional-champion + pm-finalizing (OPEN)
+                │
+                ├─── Phase 2: CHAMPION ──► REMOVE pm-provisional-champion + pm-finalizing
+                │                          ADD pm-opportunity → CLOSE pm-idea
+                │                          strategic-opportunity: REMOVE pm-provisional-champion → KEEP OPEN
+                │
+                ├─── Phase 2: DEFER ──► REMOVE pm-provisional-champion + pm-finalizing
+                │                       ADD pm-deferred → CLOSE pm-idea
+                │                       strategic-opportunity: ADD pm-deferred → CLOSE
+                │
+                ├─── Phase 2: BLOCK ──► REMOVE pm-provisional-champion + pm-finalizing
+                │                       ADD pm-blocked → CLOSE pm-idea
+                │                       strategic-opportunity: ADD pm-blocked → CLOSE
+                │
+                └─── Phase 2: CRITICAL FOLLOW-ON EXISTS
+                      │  pm-idea stays: pm-provisional-champion (OPEN, unchanged)
+                      │  NEW research: item created (labeled research: + pm-idea-N + follow-on-research)
+                      │  Orchestrator detects new open research: item → loops back to research execution
+                      └─► (loops to research execution, then Phase 2 again, max 2 rounds total)
+```
+
+#### Labels Reference
+
+**pm-idea labels (mutually exclusive state labels — only one active at a time):**
+- `pm-idea` — submitted, awaiting Phase 1
+- `pm-validating` — Phase 1 in progress (transient, removed when Phase 1 completes)
+- `pm-provisional-champion` — Phase 1 passed, research executing or awaiting Phase 2
+- `pm-finalizing` — Phase 2 in progress (transient, removed when Phase 2 completes)
+- `pm-opportunity` — Phase 2 CHAMPION, closed (terminal)
+- `pm-deferred` — DEFER at Phase 1 or Phase 2, closed (terminal)
+- `pm-blocked` — BLOCK at Phase 1 or Phase 2, closed (terminal)
+
+**research: issue labels:**
+- `research:` — identifies it as a research work item
+- `pm-idea-[NUMBER]` — links it to its parent pm-idea
+- `follow-on-research` — marks it as a Round 2 follow-on (not initial)
+- `research-complete` — research finished successfully (closed)
+- `wiki-error` — wiki operations failed during research (closed with error)
+
+**strategic-opportunity labels:**
+- `strategic-opportunity` — permanent (never removed)
+- `pm-opportunity` — active opportunity (present until DEFER/BLOCK closes it)
+- `pm-provisional-champion` — pending research (removed when Phase 2 completes any outcome)
+- `pm-deferred` — Phase 2 deferred (terminal, issue closed)
+- `pm-blocked` — Phase 2 blocked (terminal, issue closed)
+
+---
+
 ### Routing Logic: One pm-idea at a Time
 
-| Current issue state              | Action                                                          |
-|----------------------------------|-----------------------------------------------------------------|
-| `pm-idea` label only (no other labels) | **PHASE 1 GATE** - Spawn PM agent on THIS issue for Phase 1. Wait for completion. |
-| `pm-idea` + `pm-validating` (Phase 1 in progress) | WAIT - Agent currently processing. Check again next cycle. |
-| `pm-idea` + `pm-provisional-champion` + research items open | **PHASE 1 COMPLETE, AWAITING RESEARCH** - Research team is filling Wiki. Check if all research items are closed next cycle. |
-| `pm-idea` + `pm-provisional-champion` + all research items CLOSED | **PHASE 2 READY** - Spawn PM agent on THIS SAME issue for Phase 2. Wait for completion. Then proceed to next pm-idea. |
-| `pm-idea` + `pm-opportunity` (CLOSED) | Phase 2 complete, ready for PO. Skip. |
-| `pm-idea` + `pm-deferred` (CLOSED) | Phase 1 complete, deferred. Skip. |
-| `pm-idea` + `pm-blocked` (CLOSED) | Phase 1 complete, blocked. Skip. |
+| pm-idea Labels | Open/Closed | research: items | Action |
+|----------------|-------------|-----------------|--------|
+| `pm-idea` only | OPEN | none | **PHASE 1 GATE** — add `pm-validating`, spawn PM Phase 1, wait |
+| `pm-idea` + `pm-validating` | OPEN | none | **PHASE 1 IN PROGRESS** — wait, check next cycle |
+| `pm-idea` + `pm-validating` | OPEN | none (stale >1h) | **STUCK** — Phase 1 agent may have crashed. Post alert, remove `pm-validating`, retry Phase 1 |
+| `pm-idea` + `pm-provisional-champion` | OPEN | any OPEN | **RESEARCH EXECUTING** — wait, check next cycle |
+| `pm-idea` + `pm-provisional-champion` | OPEN | some with `wiki-error` | **WIKI ERROR** — post alert on pm-idea, do not advance to Phase 2 until resolved |
+| `pm-idea` + `pm-provisional-champion` | OPEN | all CLOSED (`research-complete`) | **PHASE 2 READY** — add `pm-finalizing`, spawn PM Phase 2, wait |
+| `pm-idea` + `pm-provisional-champion` | OPEN | none exist | **ERROR** — no research items found. Post alert: "Phase 1 produced no research items." |
+| `pm-idea` + `pm-provisional-champion` + `pm-finalizing` | OPEN | all CLOSED | **PHASE 2 IN PROGRESS** — wait, check next cycle |
+| `pm-idea` + `pm-provisional-champion` + `pm-finalizing` | OPEN | all CLOSED (stale >2h) | **STUCK** — Phase 2 agent may have crashed. Post alert, remove `pm-finalizing`, retry Phase 2 |
+| `pm-idea` + `pm-opportunity` | CLOSED | all CLOSED | **COMPLETE (CHAMPION)** — skip |
+| `pm-idea` + `pm-deferred` | CLOSED | any | **COMPLETE (DEFERRED)** — skip |
+| `pm-idea` + `pm-blocked` | CLOSED | any | **COMPLETE (BLOCKED)** — skip |
+
+---
+
+## Research Issue Labeling Strategy (Critical for Discovery)
+
+**When PM Agent Phase 1 creates research: items**, they MUST be labeled with BOTH:
+- `research:` — Identifies it as a research work item
+- `pm-idea-[NUMBER]` — Links it back to the source pm-idea (e.g., `pm-idea-123`)
+
+**Why this matters:**
+1. **Orchestrator Step 3b** uses these labels to find research items: `--label "pm-idea-$PM_IDEA_NUMBER" --label "research:"`
+2. **PM Agent Phase 2** uses these labels to find research comments to read
+3. **Follow-on research** also uses same labels to link back to pm-idea
+
+**Example:** If pm-idea #123 creates two research items:
+- Research item #1000 gets labels: `research:`, `pm-idea-123`
+- Research item #1001 gets labels: `research:`, `pm-idea-123`
+
+Later, orchestrator can query: `gh issue list --label "pm-idea-123" --label "research:"`
 
 ---
 
 ## Cycle Steps (Strictly Sequential)
 
-1. **Check for PHASE 1-ready issues:** List all `pm-idea` issues with NO processing labels:
+1. **Check for PHASE 1-ready issues:** List all `pm-idea` issues with no processing labels:
    ```bash
-   gh issue list --label pm-idea --state open | grep -v "pm-validating\|pm-provisional\|pm-opportunity\|pm-deferred\|pm-blocked"
+   gh issue list --label pm-idea --state open \
+     --json number,title,labels \
+     --jq '.[] | select(.labels | map(.name) | inside(["pm-validating","pm-provisional-champion","pm-finalizing","pm-opportunity","pm-deferred","pm-blocked"]) | not)'
    ```
-   If found, pick the FIRST one and proceed to step 2.
+   If found, pick the FIRST one. Store as `$PM_IDEA_NUMBER`. Proceed to step 2.
+   
+   If none found, skip to step 8 (loop).
 
-2. **If PHASE 1-ready found:** Spawn PM agent for Phase 1:
-   - Post routing comment: "PM agent starting Phase 1 Research Gate on this pm-idea..."
-   - Add label: `pm-validating`
-   - Spawn: `task(description="Discover and validate pm-idea on issue #N - Phase 1 Research Gate", agent_id="product-manager")`
-   - **Wait for completion**
+2. **Spawn PM agent for Phase 1:**
+   ```bash
+   # Mark as in-progress
+   gh issue edit $PM_IDEA_NUMBER --add-label "pm-validating"
+   gh issue comment $PM_IDEA_NUMBER --body "🔍 Orchestrator: PM agent starting Phase 1 Research Gate..."
+   
+   # Spawn PM Phase 1
+   task(description="Discover and validate pm-idea on issue #$PM_IDEA_NUMBER - Phase 1 Research Gate", agent_id="product-manager")
+   ```
+   **Wait for completion.**
+   
+   After completion, verify Phase 1 outcome by reading pm-idea labels:
+   ```bash
+   LABELS=$(gh issue view $PM_IDEA_NUMBER --json labels --jq '.labels[].name')
+   ```
+   - If `pm-blocked` or `pm-deferred` → pm-idea is CLOSED, loop back to step 1
+   - If `pm-provisional-champion` → Phase 1 succeeded, proceed to step 3b
+   - If still `pm-validating` after >60 min → STUCK, remove `pm-validating`, post alert, retry
 
-3. **Phase 1 Agent Output:**
-   - Quick validation (customer signal? strategic fit?)
-   - If weak → Close pm-idea with BLOCK/DEFER label → **Loop back to step 1 (find next pm-idea)**
-   - If strong → Create research work items + strategic-opportunity (PROVISIONAL)
-   - Apply label: `pm-provisional-champion`
-   - Leave pm-idea OPEN
-   - **Proceed to step 3b**
+3. **Phase 1 verified: research items created.** Proceed to step 3b.
 
 **GUARDRAIL: Follow-On Research Limit**
 - Each pm-idea can spawn AT MOST 2 research rounds:
-  - Round 1: Initial research: items (created by PM Phase 1)
-  - Round 2: Follow-on research (CRITICAL items only, created by PM Phase 2)
-- If Round 2 follow-on research identifies more CRITICAL items: PM Phase 2 decides DEFER (research is sufficient, do not spawn Round 3)
-- This prevents infinite research loops
+  - Round 1: Initial `research:` items (created by PM Phase 1)
+  - Round 2: Follow-on `research:` items with label `follow-on-research` (CRITICAL items only, created by PM Phase 2)
+- If Round 2 identifies more CRITICAL items: PM Phase 2 decides DEFER. Do NOT spawn Round 3.
+- This prevents infinite research loops.
 
-3b. **Spawn Research Agent on all research items** (autonomous research execution):
-   - Find all `research:` items linked to this pm-idea:
-     ```bash
-     gh issue view <pm-idea-#N> --json body | grep -o "#\d\+" | grep research
-     ```
-   - For each research item found, spawn Research agent:
-     ```bash
-     for research_item in $research_items; do
-       task(description="Conduct comprehensive research on issue #${research_item}", agent_id="research-agent")
-     done
-     ```
-   - Research agent will autonomously:
-     - Analyze competitive landscape
-     - Research market trends
-     - Extract persona insights from data
-     - Map customer journey stages
-     - Update Research Wiki
-     - Close research item when complete
-   - **Proceed to step 4**
-
-4. **Monitor for research completion** (same issue):
+3b. **Spawn Research Agent on all research items - SEQUENTIAL** (one at a time, not parallel):
    
-   Check for BOTH initial research AND follow-on research items:
+   **Find all `research:` items linked to this pm-idea using labels (not body text):**
+   
+   When PM Phase 1 creates research: items, they are labeled with both:
+   - `research:` (marks it as a research item)
+   - `pm-idea-[THIS_NUMBER]` (links it back to the pm-idea)
+   
+   Query using these labels:
    ```bash
-   # Find all research: items (initial and follow-on)
-   gh issue view <pm-idea-#N> --json body | grep -o "#\d\+" | while read research_item; do
-     # Check if this is initial research OR follow-on research
-     label=$(gh issue view $research_item --json labels)
-     status=$(gh issue view $research_item --json state)
+   RESEARCH_ITEMS=$(gh issue list \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --label "research:" \
+     --state open \
+     --json number \
+     --jq '.[] | .number' | tr '\n' ' ')
+   
+   echo "Found research items: $RESEARCH_ITEMS"
+   ```
+   
+   **CRITICAL: Spawn research agents SEQUENTIALLY, not in parallel**
+   
+   Why sequential?
+   - Multiple Research Agents updating Wiki simultaneously = race conditions
+   - Wiki page edits can collide/overwrite if done in parallel
+   - Single-threading prevents data corruption
+   - Clearer progress visibility
+   
+   Spawn and monitor ONE research item at a time. Store the list for passing to PM Phase 2:
+   ```bash
+   RESEARCH_ITEMS_CLOSED=""
+   
+   for research_item in $RESEARCH_ITEMS; do
+     # Spawn THIS research item
+     task(description="Conduct comprehensive research on issue #${research_item}", agent_id="research-agent")
      
-     if status is OPEN; then
-       echo "Research still working on #${research_item}..."
-       exit 1
-     fi
+     # WAIT FOR THIS RESEARCH ITEM TO CLOSE before spawning next
+     while true; do
+       status=$(gh issue view $research_item --json state --jq '.state')
+       if [ "$status" = "CLOSED" ]; then
+         echo "Research item #${research_item} complete. Wiki updates finished."
+         RESEARCH_ITEMS_CLOSED="$RESEARCH_ITEMS_CLOSED $research_item"
+         break
+       fi
+       echo "Waiting for research #${research_item} to complete..."
+       sleep 10  # Check every 10 seconds
+     done
+     
+     # Only after THIS item closes, spawn the NEXT research item
    done
    ```
-   - If ANY research items (initial or follow-on) still OPEN → Output "Research in progress on #23, #24, #25..." → **End cycle, wait 30 seconds, loop back to step 4**
-   - If ALL research items CLOSED (including follow-on) → **Proceed to step 5**
+   
+   Each Research Agent will autonomously:
+   - Analyze competitive landscape
+   - Research market trends
+   - Extract persona insights from data
+   - Map customer journey stages
+   - **UPDATE RESEARCH WIKI (one agent at a time, no collisions)**
+   - Close research item when complete
+   
+   **Proceed to step 4 only after ALL research items are closed**
+
+4. **Verify research completion** (all research items now complete):
+   
+   Since Step 3b **waits for each research item to close before spawning the next**, by the time you reach Step 4:
+   - ✅ All research items are CLOSED
+   - ✅ All Wiki updates are complete (single-threaded, no collisions)
+   - ✅ No conflicts in wiki page edits
+   - ✅ $RESEARCH_ITEMS_CLOSED contains all closed research issue numbers
+   
+   Double-check using label query:
+   ```bash
+   # Check for any research items still OPEN
+   OPEN_RESEARCH=$(gh issue list \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --label "research:" \
+     --state open \
+     --json number --jq 'length')
+   
+   if [ "$OPEN_RESEARCH" -gt 0 ]; then
+     echo "ERROR: $OPEN_RESEARCH research item(s) still open"
+     exit 1
+   fi
+   
+   # Check for any research items with wiki-error
+   WIKI_ERRORS=$(gh issue list \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --label "wiki-error" \
+     --state closed \
+     --json number --jq 'length')
+   
+   if [ "$WIKI_ERRORS" -gt 0 ]; then
+     gh issue comment $PM_IDEA_NUMBER --body "⚠️ Orchestrator: $WIKI_ERRORS research item(s) closed with wiki-error label. Wiki pages may be incomplete. Investigate before proceeding to Phase 2."
+     exit 1
+   fi
+   
+   echo "✅ All research items complete and closed, no wiki errors"
+   ```
+   
+   **Proceed to step 5**
 
 5. **Spawn PM agent for PHASE 2 (same issue):**
-   - Post routing comment: "All research items complete (Round 1 + any Round 2 follow-on). Starting Phase 2 Final Validation on this pm-idea..."
-   - Spawn: `task(description="Validate pm-idea on issue #N with completed research - Phase 2 Final Validation (may spawn CRITICAL follow-on research if needed)", agent_id="product-manager")`
-   - **Wait for completion**
    
-   What Phase 2 does:
-   - Evaluates CRITICAL next steps (severity-rated by Research Agent)
-   - If CRITICAL items exist: Spawns follow-on research, loops back to step 4
-   - If NO CRITICAL items: Makes final CHAMPION/DEFER/BLOCK decision
+   Mark Phase 2 as in-progress with `pm-finalizing` label (prevents duplicate Phase 2 spawns if orchestrator restarts):
+   ```bash
+   gh issue edit $PM_IDEA_NUMBER --add-label "pm-finalizing"
+   gh issue comment $PM_IDEA_NUMBER --body "✅ All research items complete. Starting Phase 2 Final Validation..."
+   ```
+   
+   Spawn PM Agent with research issue numbers:
+   ```bash
+   task(
+     description="Validate pm-idea #$PM_IDEA_NUMBER with completed research - Phase 2 Final Validation",
+     agent_id="product-manager",
+     parameters={
+       "pm_idea_number": "$PM_IDEA_NUMBER",
+       "research_issues": "$RESEARCH_ITEMS_CLOSED"
+     }
+   )
+   ```
+   
+   **Wait for completion.**
+   
+   After completion, check for follow-on research OR final outcome:
+   ```bash
+   # Check if Phase 2 spawned follow-on research items (new open research: items)
+   FOLLOWON=$(gh issue list \
+     --label "pm-idea-$PM_IDEA_NUMBER" \
+     --label "follow-on-research" \
+     --state open \
+     --json number --jq 'length')
+   
+   if [ "$FOLLOWON" -gt 0 ]; then
+     echo "Follow-on research detected. Looping back to Step 3b."
+     # Remove pm-finalizing (Phase 2 is paused, not complete)
+     gh issue edit $PM_IDEA_NUMBER --remove-label "pm-finalizing"
+     # Go back to Step 3b to process follow-on research items
+     goto step_3b
+   fi
+   
+   # No follow-on research: Phase 2 is complete
+   # pm-finalizing should have been removed by PM Phase 2 agent
+   # Verify pm-idea is now CLOSED
+   STATE=$(gh issue view $PM_IDEA_NUMBER --json state --jq '.state')
+   if [ "$STATE" != "CLOSED" ]; then
+     echo "ERROR: pm-idea #$PM_IDEA_NUMBER should be closed after Phase 2 but is still OPEN"
+     exit 1
+   fi
+   
+   echo "✅ Phase 2 complete. pm-idea #$PM_IDEA_NUMBER closed."
+   ```
+   
+   **Proceed to step 6.**
 
 6. **Phase 2 Agent Output:**
    - Read completed Research Wiki
