@@ -1,0 +1,50 @@
+@model IReadOnlyList<EquipmentTracker.Web.Models.CheckoutOverrideRecord>
+@using EquipmentTracker.Web.Models
+
+@{
+    ViewData["Title"] = "Supervisor Override Audit Log";
+}
+
+<h2>📋 Supervisor Override Audit Log</h2>
+<p class="text-muted">Immutable record of all supervisor-authorised checkout overrides. Records are append-only and cannot be edited or deleted. Retrievable for OSHA inspection.</p>
+
+<div class="mb-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">← Compliance Dashboard</a>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No override records on file.</div>
+}
+else
+{
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>#</th>
+                <th>Checkout Record</th>
+                <th>Blocked Operator</th>
+                <th>Required Cert</th>
+                <th>Supervisor</th>
+                <th>Reason Code</th>
+                <th>Reason Text</th>
+                <th>Timestamp (UTC)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ov in Model.OrderByDescending(o => o.CreatedAt))
+            {
+                <tr>
+                    <td>@ov.Id</td>
+                    <td>@ov.CheckoutRecordId</td>
+                    <td>@ov.BlockedOperatorName</td>
+                    <td>@ov.RequiredCertName</td>
+                    <td><strong>@ov.SupervisorName</strong></td>
+                    <td><span class="badge bg-warning text-dark">@ov.ReasonCode</span></td>
+                    <td>@ov.ReasonText</td>
+                    <td>@ov.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -1,0 +1,170 @@
+@model EquipmentTracker.Web.ViewModels.CfoReportViewModel
+@using EquipmentTracker.Web.Services
+
+@{
+    ViewData["Title"] = "CFO Executive Report — " + Model.ReportData?.CompanyName;
+    var report = Model.ReportData!;
+    Layout = null; // Standalone printable page — no nav chrome
+
+    // Pre-compute fleet summary stats for Section (a)
+    int fleetIdle    = report.IsEmptyState ? 0 : report.FleetUtilizationSummary.Count(a => a.Status == UtilizationStatus.Idle);
+    int fleetMonitor = report.IsEmptyState ? 0 : report.FleetUtilizationSummary.Count(a => a.Status == UtilizationStatus.Monitor);
+    int fleetHealthy = report.IsEmptyState ? 0 : report.FleetUtilizationSummary.Count(a => a.Status == UtilizationStatus.Healthy);
+    double avgUtil   = (!report.IsEmptyState && report.FleetUtilizationSummary.Any())
+        ? report.FleetUtilizationSummary.Average(a => a.Trailing12MonthsRate) : 0;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CFO Executive Report — @report.CompanyName</title>
+    <style>
+        /* Print-optimized layout — Letter and A4 compatible (AC-6) */
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #222; margin: 0; padding: 0; }
+        .page { width: 21cm; min-height: 27.7cm; margin: 0 auto; padding: 2cm; box-sizing: border-box; }
+        h1 { font-size: 18pt; color: #1a3c6b; border-bottom: 2px solid #1a3c6b; padding-bottom: 6px; }
+        h2 { font-size: 13pt; color: #1a3c6b; margin-top: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10pt; }
+        th { background: #1a3c6b; color: #fff; padding: 6px 8px; text-align: left; }
+        td { padding: 5px 8px; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) td { background: #f5f8ff; }
+        .badge-idle { color: #cc0000; font-weight: bold; }
+        .badge-monitor { color: #cc7700; font-weight: bold; }
+        .badge-healthy { color: #007700; font-weight: bold; }
+        .rec-card { border: 1px solid #1a3c6b; border-radius: 4px; padding: 10px 14px; margin: 8px 0; }
+        .rec-buy { border-color: #007700; background: #f0fff0; }
+        .rec-rent { border-color: #888; background: #f8f8f8; }
+        .trend-bar { width: 100%; }
+        .trend-bar td { font-size: 9pt; }
+        .kpi-row { display: flex; gap: 20px; margin: 16px 0; }
+        .kpi { flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 10px; text-align: center; }
+        .kpi h3 { margin: 4px 0; font-size: 20pt; color: #1a3c6b; }
+        .kpi p { margin: 0; font-size: 9pt; color: #666; }
+        .footer { font-size: 8pt; color: #888; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 8px; }
+        .empty-state { color: #888; font-style: italic; }
+        @@media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Section (e): Header metadata -->
+    <h1>CFO Executive Report</h1>
+    <table style="margin: 0 0 20px; width: auto;">
+        <tr><td><strong>Company:</strong></td><td>@report.CompanyName</td></tr>
+        <tr><td><strong>Report Date:</strong></td><td>@report.ReportDate.ToString("MMMM d, yyyy")</td></tr>
+        <tr><td><strong>Reporting Period:</strong></td>
+            <td>@report.PeriodStart.ToString("MMM d, yyyy") – @report.PeriodEnd.ToString("MMM d, yyyy")</td></tr>
+    </table>
+
+    @if (report.IsEmptyState)
+    {
+        <p class="empty-state">
+            No assets are tracked yet. Add equipment to begin generating utilization reports.
+        </p>
+    }
+    else
+    {
+        <!-- Section (a): Fleet utilization summary -->
+        <h2>1. Fleet Utilization Summary</h2>
+        <div class="kpi-row">
+            <div class="kpi"><h3 class="badge-idle">@fleetIdle</h3><p>Idle (&lt;40%)</p></div>
+            <div class="kpi"><h3 class="badge-monitor">@fleetMonitor</h3><p>Monitor (40–70%)</p></div>
+            <div class="kpi"><h3 class="badge-healthy">@fleetHealthy</h3><p>Healthy (&gt;70%)</p></div>
+            <div class="kpi"><h3>@avgUtil.ToString("P0")</h3><p>Fleet Avg (12M)</p></div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th>Category</th>
+                    <th>Current Month</th>
+                    <th>Trailing 3M</th>
+                    <th>Trailing 12M</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in report.FleetUtilizationSummary)
+                {
+                    var cls = asset.Status == UtilizationStatus.Idle ? "badge-idle"
+                            : asset.Status == UtilizationStatus.Monitor ? "badge-monitor"
+                            : "badge-healthy";
+                    <tr>
+                        <td>@asset.AssetName</td>
+                        <td>@asset.AssetCategory</td>
+                        <td>@asset.CurrentMonthRate.ToString("P0")</td>
+                        <td>@asset.Trailing3MonthsRate.ToString("P0")</td>
+                        <td>@asset.Trailing12MonthsRate.ToString("P0")</td>
+                        <td class="@cls">@asset.Status</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Section (b): Estimated budget waste -->
+        <h2>2. Estimated Annual Budget Waste</h2>
+        <p>
+            Estimated annual cost of underutilized owned assets (&lt;40% utilization):
+            <strong>$@report.EstimatedAnnualBudgetWaste.ToString("N0")</strong>
+        </p>
+        <p class="empty-state" style="font-size:9pt;">
+            ⚠ This estimate is based on a placeholder daily ownership cost. Actual figures will improve
+            once TCO data is configured (planned for a future release).
+        </p>
+
+        <!-- Section (c): Top 3 buy/rent recommendations -->
+        <h2>3. Top Buy vs. Rent Recommendations</h2>
+        @if (!report.TopRecommendations.Any())
+        {
+            <p class="empty-state">No actionable recommendations yet — 90 days of data required per category.</p>
+        }
+        else
+        {
+            @foreach (var rec in report.TopRecommendations)
+            {
+                var cardClass = rec.RecommendationText.Contains("Buy") ? "rec-buy" : "rec-rent";
+                <div class="rec-card @cardClass">
+                    <strong>@rec.AssetCategory</strong><br />
+                    @rec.RecommendationText<br />
+                    <small style="color:#666;">Data source: @rec.DataSource | Utilization: @rec.UtilizationRate.ToString("P0")</small>
+                </div>
+            }
+        }
+
+        <!-- Section (d): Month-over-month trend -->
+        <h2>4. Month-over-Month Fleet Utilization Trend</h2>
+        <table class="trend-bar">
+            <tr>
+                @foreach (var point in report.MonthlyTrend)
+                {
+                    <td style="text-align:center; vertical-align:bottom; padding:2px 4px;">
+                        <div style="background:#1a3c6b; width:28px; height:@((int)(point.AverageFleetUtilizationRate * 80))px; margin: 0 auto;"></div>
+                        <div>@point.AverageFleetUtilizationRate.ToString("P0")</div>
+                        <div style="font-size:8pt; color:#888;">@point.MonthLabel</div>
+                    </td>
+                }
+            </tr>
+        </table>
+    }
+
+    <div class="footer no-print">
+        <em>Generated by EquipmentTracker &bull; @report.ReportDate.ToString("yyyy-MM-dd HH:mm:ss") UTC</em>
+    </div>
+</div>
+
+<div class="no-print" style="text-align:center; margin: 20px;">
+    <button onclick="window.print()" class="btn btn-primary" style="padding:8px 20px; font-size:14px;">
+        🖨️ Print / Save as PDF
+    </button>
+    <a href="/CfoReport" style="margin-left:10px; font-size:14px;">← Back</a>
+</div>
+
+</body>
+</html>

@@ -1,4 +1,5 @@
 @model EquipmentTracker.Web.ViewModels.CheckoutViewModel
+@using EquipmentTracker.Web.Models
 
 @{
     ViewData["Title"] = "Check Out Equipment";
@@ -7,7 +8,7 @@
 <h2>Check Out Equipment</h2>
 
 <div class="row">
-    <div class="col-md-6">
+    <div class="col-md-7">
         <form asp-action="Checkout" method="post">
             @Html.AntiForgeryToken()
 
@@ -41,8 +42,58 @@
                 <span asp-validation-for="ConfirmedSiteId" class="text-danger"></span>
             </div>
 
-            <button type="submit" class="btn btn-primary">Confirm Checkout</button>
-            <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            @if (Model.CertBlockMessage != null)
+            {
+                <div class="alert alert-danger mt-3" role="alert">
+                    <h5 class="alert-heading">⛔ Checkout Blocked — Certification Required</h5>
+                    <p>@Model.CertBlockMessage</p>
+                </div>
+
+                <div class="card border-warning mt-3">
+                    <div class="card-header bg-warning text-dark">
+                        🔑 Supervisor Override (Required for OSHA Audit Trail)
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">
+                            An authorised supervisor may override this block. The override is recorded
+                            immutably with the supervisor's identity, timestamp, and reason code for
+                            OSHA inspection purposes.
+                        </p>
+
+                        <input type="hidden" asp-for="IsOverrideAttempt" value="true" />
+                        <input type="hidden" asp-for="CertBlockMessage" />
+
+                        <div class="mb-3">
+                            <label asp-for="OverrideSupervisorName" class="form-label">Supervisor Full Name <span class="text-danger">*</span></label>
+                            <input asp-for="OverrideSupervisorName" class="form-control"
+                                   placeholder="Supervisor's full name" />
+                            <span asp-validation-for="OverrideSupervisorName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="OverrideReasonCode" class="form-label">Reason Code <span class="text-danger">*</span></label>
+                            <select asp-for="OverrideReasonCode" class="form-select"
+                                    asp-items="Html.GetEnumSelectList<OverrideReasonCode>()"></select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="OverrideReasonText" class="form-label">Additional Notes (optional)</label>
+                            <textarea asp-for="OverrideReasonText" class="form-control" rows="2"
+                                      placeholder="Provide any additional context…"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn-warning">
+                            ⚠️ Override &amp; Complete Checkout
+                        </button>
+                        <a asp-action="Index" asp-controller="Equipment" class="btn btn-secondary ms-2">Cancel</a>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-primary">Confirm Checkout</button>
+                <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+            }
         </form>
     </div>
 </div>

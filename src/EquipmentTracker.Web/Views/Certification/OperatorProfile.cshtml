@@ -1,0 +1,117 @@
+@model EquipmentTracker.Web.ViewModels.OperatorProfileViewModel
+@using EquipmentTracker.Web.Models
+
+@{
+    ViewData["Title"] = $"Operator Profile — {Model.OperatorName}";
+}
+
+<h2>👤 Operator Certification Profile: @Model.OperatorName</h2>
+
+@if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
+@if (TempData["ErrorMessage"] != null)   { <div class="alert alert-danger">@TempData["ErrorMessage"]</div> }
+
+<div class="mb-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">← Compliance Dashboard</a>
+</div>
+
+<!-- Cert Records -->
+<h4>Certifications on File</h4>
+@if (!Model.CertRecords.Any())
+{
+    <div class="alert alert-warning">No certifications on file for this operator.</div>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead class="table-dark">
+            <tr><th>Certification</th><th>Issued</th><th>Expires</th><th>Status</th><th>Documents</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var rec in Model.CertRecords)
+            {
+                var certType = Model.CertTypeById.TryGetValue(rec.CertTypeId, out var ct) ? ct.Name : $"#{rec.CertTypeId}";
+                var statusClass = rec.Status switch
+                {
+                    CertificationStatus.Expired      => "table-danger",
+                    CertificationStatus.ExpiringSoon => "table-warning",
+                    _                                 => "table-success"
+                };
+                var badge = rec.Status switch
+                {
+                    CertificationStatus.Expired      => "bg-danger",
+                    CertificationStatus.ExpiringSoon => "bg-warning text-dark",
+                    _                                 => "bg-success"
+                };
+                var docs = Model.DocumentsByCertRecordId.TryGetValue(rec.Id, out var d) ? d : [];
+                <tr class="@statusClass">
+                    <td><strong>@certType</strong>@if (rec.Notes != null){ <br/><small class="text-muted">@rec.Notes</small> }</td>
+                    <td>@rec.IssuedDate.ToString("yyyy-MM-dd")</td>
+                    <td>@rec.ExpiryDate.ToString("yyyy-MM-dd")</td>
+                    <td><span class="badge @badge">@rec.Status</span></td>
+                    <td>
+                        @if (!docs.Any())
+                        {
+                            <span class="text-muted">None</span>
+                        }
+                        else
+                        {
+                            @foreach (var doc in docs)
+                            {
+                                <span class="badge bg-secondary me-1" title="Uploaded by @doc.UploadedBy on @doc.CreatedAt.ToString("yyyy-MM-dd")">
+                                    📄 @doc.FileName
+                                </span>
+                            }
+                        }
+                        <!-- Upload Document Form -->
+                        <form asp-action="UploadDocument" method="post" enctype="multipart/form-data" class="mt-1">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CertRecordId" value="@rec.Id" />
+                            <input type="hidden" name="UploadedBy" value="Admin" />
+                            <div class="input-group input-group-sm" style="max-width:300px">
+                                <input type="file" name="File" class="form-control form-control-sm"
+                                       accept=".pdf,.jpg,.jpeg,.png" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Upload</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<!-- Add Cert Record Form -->
+<h4 class="mt-4">Add Certification Record</h4>
+<form asp-action="AddCertRecord" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="NewCertRecord.OperatorName" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Certification Type</label>
+            <select asp-for="NewCertRecord.CertTypeId" asp-items="Model.CertTypeSelectList"
+                    class="form-select">
+                <option value="0">— Select —</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Issued Date</label>
+            <input asp-for="NewCertRecord.IssuedDate" type="date" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Expiry Date</label>
+            <input asp-for="NewCertRecord.ExpiryDate" type="date" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Notes (optional)</label>
+            <input asp-for="NewCertRecord.Notes" class="form-control" placeholder="Issuing body, course ID…" />
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Add Cert</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

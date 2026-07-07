@@ -108,7 +108,7 @@ public class LocationEquipmentTests
         var item = equipment.GetAllItems().First();
         Assert.True(equipment.UpdateItemSite(item.Id, inactiveSite.Id));
 
-        var controller = new EquipmentController(equipment, sites, BuildConfiguration());
+        var controller = new EquipmentController(equipment, sites, new CertificationService(), BuildConfiguration());
 
         var result = controller.Checkout(item.Id);
         var view = Assert.IsType<ViewResult>(result);

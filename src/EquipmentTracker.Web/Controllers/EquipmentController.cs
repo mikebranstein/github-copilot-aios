@@ -1,3 +1,4 @@
+using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
@@ -9,12 +10,18 @@ public class EquipmentController : Controller
 {
     private readonly IEquipmentService _equipmentService;
     private readonly ISiteService _siteService;
+    private readonly ICertificationService _certService;
     private readonly IConfiguration _configuration;
 
-    public EquipmentController(IEquipmentService equipmentService, ISiteService siteService, IConfiguration configuration)
+    public EquipmentController(
+        IEquipmentService equipmentService,
+        ISiteService siteService,
+        ICertificationService certService,
+        IConfiguration configuration)
     {
         _equipmentService = equipmentService;
         _siteService = siteService;
+        _certService = certService;
         _configuration = configuration;
     }
 
@@ -119,8 +126,41 @@ public class EquipmentController : Controller
 
         if (!ModelState.IsValid)
         {
+            if (model.CertBlockMessage is null && !string.IsNullOrWhiteSpace(model.BorrowerName))
+            {
+                var outcome = _certService.ValidateCheckout(model.BorrowerName, item.Category);
+                if (outcome == CertValidationOutcome.Blocked)
+                    model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
+            }
+
             PopulateCheckoutSiteFields(model, item);
             return View(model);
+        }
+
+        var certOutcome = CertValidationOutcome.NotRequired;
+
+        if (!model.IsOverrideAttempt)
+        {
+            certOutcome = _certService.ValidateCheckout(model.BorrowerName, item.Category);
+            if (certOutcome == CertValidationOutcome.Blocked)
+            {
+                model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
+                PopulateCheckoutSiteFields(model, item);
+                return View(model);
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(model.OverrideSupervisorName))
+            {
+                ModelState.AddModelError(nameof(model.OverrideSupervisorName),
+                    "Supervisor name is required to override a blocked checkout.");
+                model.CertBlockMessage = _certService.GetBlockReasonMessage(model.BorrowerName, item.Category);
+                PopulateCheckoutSiteFields(model, item);
+                return View(model);
+            }
+
+            certOutcome = CertValidationOutcome.Overridden;
         }
 
         var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName, newSiteId: model.ConfirmedSiteId);
@@ -135,7 +175,35 @@ public class EquipmentController : Controller
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"'{model.EquipmentItemName}' checked out to {model.BorrowerName}.";
+        // ── Record cert validation result on the checkout record ──────────────
+        var checkoutRecord = _equipmentService.GetActiveCheckoutRecord(model.EquipmentItemId);
+        if (checkoutRecord is not null)
+        {
+            checkoutRecord.CertValidationResult = certOutcome;
+
+            if (certOutcome == CertValidationOutcome.Overridden)
+            {
+                // Determine which cert was required for the block message
+                var reqs = _certService.GetRequirementsForCategory(item.Category);
+                var firstCertType = reqs.Select(r => _certService.GetCertType(r.CertTypeId)?.Name)
+                                        .FirstOrDefault() ?? "certification";
+
+                var overrideRecord = _certService.RecordOverride(
+                    checkoutRecord.Id,
+                    model.OverrideSupervisorName!,
+                    model.OverrideReasonCode,
+                    model.OverrideReasonText ?? string.Empty,
+                    model.BorrowerName,
+                    firstCertType);
+
+                checkoutRecord.OverrideRecordId = overrideRecord.Id;
+            }
+        }
+
+        TempData["SuccessMessage"] = certOutcome == CertValidationOutcome.Overridden
+            ? $"'{model.EquipmentItemName}' checked out to {model.BorrowerName} with supervisor override by {model.OverrideSupervisorName}."
+            : $"'{model.EquipmentItemName}' checked out to {model.BorrowerName}.";
+
         return RedirectToAction(nameof(Index));
     }
 

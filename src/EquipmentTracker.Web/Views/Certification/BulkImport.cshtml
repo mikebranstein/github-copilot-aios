@@ -1,0 +1,74 @@
+@model EquipmentTracker.Web.ViewModels.BulkImportViewModel
+
+@{
+    ViewData["Title"] = "Bulk Cert Import";
+}
+
+<h2>📥 Bulk Certification Import</h2>
+<p class="text-muted">Import up to 1,000 operator certification records from a CSV. Format: <code>OperatorName,CertTypeName,IssuedDate,ExpiryDate[,Notes]</code></p>
+
+@if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
+@if (TempData["WarningMessage"] != null) { <div class="alert alert-warning">@TempData["WarningMessage"]</div> }
+@if (TempData["ErrorMessage"] != null)   { <div class="alert alert-danger">@TempData["ErrorMessage"]</div> }
+
+<div class="mb-3">
+    <a asp-action="Index" class="btn btn-outline-secondary">← Back to Dashboard</a>
+</div>
+
+<!-- Example format hint -->
+<div class="card mb-3">
+    <div class="card-header">CSV Format</div>
+    <div class="card-body">
+        <pre class="mb-0">OperatorName,CertTypeName,IssuedDate,ExpiryDate,Notes
+John Smith,Forklift Operator Certification,2023-01-15,2026-01-15,NIOSH certified
+Jane Doe,OSHA 10 Construction,2024-03-01,2026-03-01</pre>
+    </div>
+</div>
+
+<form asp-action="BulkImport" method="post">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+    <div class="mb-3">
+        <label asp-for="CsvData" class="form-label">Paste CSV Data</label>
+        <textarea asp-for="CsvData" class="form-control font-monospace" rows="15"
+                  placeholder="Paste your CSV here (header row is optional)…"></textarea>
+        <span asp-validation-for="CsvData" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Import</button>
+</form>
+
+@if (Model.ImportRan)
+{
+    <hr />
+    <h5 class="mt-3">Import Results</h5>
+    <p><strong>Records imported:</strong> @Model.ImportedCount</p>
+
+    @if (Model.HasErrors)
+    {
+        <div class="alert alert-warning">
+            <h6>@Model.ValidationErrors.Count row(s) had errors:</h6>
+            <table class="table table-sm table-bordered mt-2">
+                <thead><tr><th>Row</th><th>Error</th></tr></thead>
+                <tbody>
+                    @foreach (var err in Model.ValidationErrors)
+                    {
+                        <tr class="table-warning">
+                            <td>@err.Row</td>
+                            <td>@err.Error</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Model.ImportedCount > 0)
+    {
+        <div class="alert alert-success">All rows imported successfully.</div>
+    }
+}
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

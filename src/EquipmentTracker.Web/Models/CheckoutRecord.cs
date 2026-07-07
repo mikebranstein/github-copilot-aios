@@ -34,4 +34,8 @@ public class CheckoutRecord
     public string? ConditionPhotoAtReturn { get; set; }  // URL/path to photo
     public string? ConditionAtReturn { get; set; }  // text description
     public string? ConditionAssessment { get; set; }  // NoDamage, MinorDamage, SignificantDamage (set by coordinator)
+
+    // Added for Issue #120 — Operator Certification & Compliance Enforcement
+    public CertValidationOutcome CertValidationResult { get; set; } = CertValidationOutcome.NotRequired;
+    public int? OverrideRecordId { get; set; }
 }

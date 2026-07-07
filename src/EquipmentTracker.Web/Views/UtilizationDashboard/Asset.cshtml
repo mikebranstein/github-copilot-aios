@@ -1,0 +1,54 @@
+@model EquipmentTracker.Web.ViewModels.AssetUtilizationViewModel
+@using EquipmentTracker.Web.Services
+
+@{
+    ViewData["Title"] = "Asset Utilization Detail";
+    var m = Model.Metrics!;
+}
+
+<div class="container mt-4">
+    <h2>⚙️ Asset Utilization: @m.AssetName</h2>
+    <p class="text-muted">Category: @m.AssetCategory</p>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center p-3">
+                <h6>Current Month</h6>
+                <h3>@m.CurrentMonthRate.ToString("P1")</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center p-3">
+                <h6>Trailing 3 Months</h6>
+                <h3>@m.Trailing3MonthsRate.ToString("P1")</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center p-3">
+                <h6>Trailing 12 Months</h6>
+                <h3>@m.Trailing12MonthsRate.ToString("P1")</h3>
+            </div>
+        </div>
+    </div>
+
+    <p>
+        <strong>Trend:</strong>
+        @(m.Trend == UtilizationTrend.Up ? "⬆️ Improving" :
+          m.Trend == UtilizationTrend.Down ? "⬇️ Declining" : "➡️ Stable")
+    </p>
+
+    <p>
+        <strong>Status:</strong>
+        @(m.Status == UtilizationStatus.Idle    ? "🔴 Idle — utilization below 40%" :
+          m.Status == UtilizationStatus.Monitor ? "🟡 Monitor — utilization 40–70%" :
+                                                   "🟢 Healthy — utilization above 70%")
+    </p>
+
+    <div class="alert alert-light border mt-3">
+        <strong>ℹ️ Calculation Methodology:</strong> @Model.MethodologyTooltip
+    </div>
+
+    <a asp-controller="UtilizationDashboard" asp-action="Index" class="btn btn-outline-secondary mt-2">
+        ← Back to Fleet Dashboard
+    </a>
+</div>
