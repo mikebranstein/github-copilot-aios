@@ -63,6 +63,19 @@ public class MobileReturnController : Controller
         var item = _equipmentService.GetItem(itemId);
         if (item is null) return NotFound();
 
+        // Ownership guard: only the borrower or a coordinator may return an item.
+        var currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+        var isCoordinator = bool.TryParse(User.FindFirstValue("IsCoordinator"), out var cv) && cv;
+        var activeRecord = _equipmentService.GetActiveCheckoutRecord(itemId);
+
+        if (activeRecord?.BorrowerUserId != null &&
+            activeRecord.BorrowerUserId != currentUserId &&
+            !isCoordinator)
+        {
+            TempData["ErrorMessage"] = "You can only return equipment that you checked out.";
+            return RedirectToAction("Scan");
+        }
+
         if (item.IsAvailable)
         {
             var vm = new MobileReturnConfirmViewModel

@@ -1,5 +1,11 @@
+using EquipmentTracker.Web.Controllers;
 using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Security.Claims;
 using Xunit;
 
 namespace EquipmentTracker.Web.Tests;
@@ -310,5 +316,58 @@ public class MobileCheckoutTests
         };
 
         Assert.Null(record.JobSiteId);
+    }
+
+    // ── Ownership guard on return ──────────────────────────────────────────────
+
+    [Fact]
+    public void EquipmentService_Return_FailsWhenCalledByNonBorrowerNonCoordinator()
+    {
+        // Scenario: User A (userId=1) checks out an item.
+        // User B (userId=2, not a coordinator) attempts to return it.
+        // The controller ownership guard should reject the attempt.
+
+        // Arrange: User A checks out an item
+        var equipmentSvc = new EquipmentService();
+        var item = equipmentSvc.GetAllItems().First(i => i.IsAvailable);
+        equipmentSvc.Checkout(item.Id, "Alice", borrowerUserId: 1);
+
+        // Set up the controller with a real EquipmentService
+        var logger = NullLogger<MobileReturnController>.Instance;
+        var controller = new MobileReturnController(equipmentSvc, logger);
+
+        // Configure HttpContext as User B (userId=2, not a coordinator)
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "2"),
+            new Claim(ClaimTypes.Name, "Bob"),
+            new Claim("IsCoordinator", "False")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { User = principal };
+
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
+
+        // Act: User B attempts to confirm the return
+        var result = controller.ConfirmPost(item.Id);
+
+        // Assert: should redirect to Scan with an error (ownership guard triggered)
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Scan", redirect.ActionName);
+
+        // Item should still be checked out — the return was blocked
+        var activeRecord = equipmentSvc.GetActiveCheckoutRecord(item.Id);
+        Assert.NotNull(activeRecord);
+        Assert.Equal(1, activeRecord!.BorrowerUserId);
+    }
+
+    /// <summary>Minimal no-op TempData provider for controller unit tests.</summary>
+    private sealed class NullTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object?> LoadTempData(HttpContext context)
+            => new Dictionary<string, object?>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object?> values) { }
     }
 }
