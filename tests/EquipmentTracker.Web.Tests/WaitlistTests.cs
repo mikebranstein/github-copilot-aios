@@ -27,6 +27,10 @@ public class FakeUserService : IUserService
     public IReadOnlyList<ApplicationUser> GetBorrowers() => new List<ApplicationUser> { _defaultUser };
     public void UpdatePushSubscription(int userId, string? endpoint, string? p256dh, string? auth) { }
     public void SetNotificationsEnabled(int userId, bool enabled) { }
+    // Added for Issue #117
+    public IReadOnlyList<ApplicationUser> GetSafetyAdmins() => new List<ApplicationUser>();
+    public IReadOnlyList<ApplicationUser> GetApprovers() => new List<ApplicationUser>();
+    public void SetSafetyAdmin(int userId, bool isSafetyAdmin) { }
 }
 
 public class WaitlistTests

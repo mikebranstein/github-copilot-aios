@@ -6,18 +6,13 @@ public class ApplicationUser
     public string Username { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public bool IsCoordinator { get; set; }
-    // Added for Issue #123 - Project-Based Equipment Reservation & Scheduling Calendar
-    /// <summary>
-    /// Operations Manager role: can override conflicting reservations and view cross-site dashboards.
-    /// Must be explicitly assigned by an account admin.
-    /// </summary>
-    public bool IsOperationsManager { get; set; } = false;
 
+    // Added for Issue #117 - Approval Workflow for Restricted Equipment Checkout
     /// <summary>
-    /// Primary site assignment for site supervisors (0 = no restriction / multi-site access).
-    /// Operations Managers and Admins see all sites regardless of this value.
+    /// Safety Admin role: only Safety Admins can invoke emergency override.
+    /// Must be explicitly assigned by an account admin — not auto-assigned.
     /// </summary>
-    public int SiteId { get; set; } = 0;
+    public bool IsSafetyAdmin { get; set; } = false;
 
     public string? PushEndpoint { get; set; }
     public string? PushP256dh { get; set; }

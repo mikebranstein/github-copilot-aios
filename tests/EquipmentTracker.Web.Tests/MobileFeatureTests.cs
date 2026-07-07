@@ -238,7 +238,7 @@ public class MobileFeatureTests
         services.AddSingleton(pushSvc);
         services.AddSingleton(userSvc);
         services.AddSingleton(equipSvc);
-        services.AddSingleton<IApprovalService>(sp => new ApprovalService(sp.GetRequiredService<IEquipmentService>()));
+        services.AddSingleton<IApprovalService>(sp => new ApprovalService(sp.GetRequiredService<IEquipmentService>(), sp.GetRequiredService<IUserService>(), sp.GetRequiredService<IPushNotificationService>()));
         var provider = services.BuildServiceProvider();
 
         var config = new ConfigurationBuilder()

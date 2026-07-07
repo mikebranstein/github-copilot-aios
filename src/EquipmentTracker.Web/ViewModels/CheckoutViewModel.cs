@@ -13,17 +13,14 @@ public class CheckoutViewModel
     [StringLength(100)]
     public string BorrowerName { get; set; } = string.Empty;
 
-    public string? CertBlockMessage { get; set; }
-    public bool IsOverrideAttempt { get; set; } = false;
+    // Added for Issue #117 - Approval Workflow for Restricted Equipment Checkout
+    /// <summary>True if the item is marked restricted and requires approval.</summary>
+    public bool IsRestricted { get; set; } = false;
 
+    /// <summary>Describes the type of approval required (e.g., "Supervisor Sign-Off").</summary>
+    public string? RequiredApprovalType { get; set; }
+
+    /// <summary>Optional: requested checkout duration, included in the approver push notification.</summary>
     [StringLength(100)]
-    public string? OverrideSupervisorName { get; set; }
-
-    public OverrideReasonCode OverrideReasonCode { get; set; } = OverrideReasonCode.EmergencyRenewalInProgress;
-
-    [StringLength(500)]
-    public string? OverrideReasonText { get; set; }
-    public int? ConfirmedSiteId { get; set; }
-    public string? CurrentSiteName { get; set; }
-    public IReadOnlyList<SelectListItem> SiteOptions { get; set; } = [];
+    public string? CheckoutDuration { get; set; }
 }

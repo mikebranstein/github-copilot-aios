@@ -35,13 +35,11 @@ public class CheckoutRecord
     public string? ConditionAtReturn { get; set; }  // text description
     public string? ConditionAssessment { get; set; }  // NoDamage, MinorDamage, SignificantDamage (set by coordinator)
 
-    // Added for Issue #120 — Operator Certification & Compliance Enforcement
-    public CertValidationOutcome CertValidationResult { get; set; } = CertValidationOutcome.NotRequired;
-    public int? OverrideRecordId { get; set; }
-
-    // Added for Issue #115 — Equipment Condition Assessment & Damage Tracking at Return
-    /// <summary>ID of the ConditionRecord created during this return cycle (immutable once set).</summary>
-    public int? ConditionRecordId { get; set; }
-    /// <summary>Return flow state: used to support offline photo sync queue.</summary>
-    public ReturnState? ReturnFlowState { get; set; }
+    // Added for Issue #117 — Approval Workflow for Restricted Equipment Checkout
+    /// <summary>
+    /// True when this checkout is awaiting approval for restricted equipment.
+    /// The item is reserved (IsAvailable=false) but not yet released to the operator.
+    /// Cleared to false when the approval request is approved or emergency-overridden.
+    /// </summary>
+    public bool IsPendingApproval { get; set; } = false;
 }
