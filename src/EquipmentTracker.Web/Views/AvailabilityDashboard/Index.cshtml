@@ -1,0 +1,183 @@
+@model EquipmentTracker.Web.ViewModels.AvailabilityDashboardViewModel
+@{
+    ViewData["Title"] = "Equipment Availability";
+}
+
+<div id="dashboard-root" class="availability-dashboard">
+    <!-- Offline banner -->
+    @if (Model.IsOffline)
+    {
+        <div class="alert alert-warning d-flex align-items-center" role="alert" id="offline-banner">
+            <strong>Offline</strong>&nbsp;— Showing cached data. Changes will sync when connectivity is restored.
+        </div>
+    }
+
+    <!-- Staleness warning -->
+    @if (Model.IsStale)
+    {
+        <div class="alert alert-danger d-flex align-items-center" role="alert" id="staleness-warning">
+            <strong>Data may be stale</strong>&nbsp;— Last updated @Math.Round(Model.MinutesSinceRefresh) min ago.
+            <button type="button" class="btn btn-sm btn-outline-danger ms-3" onclick="manualRefresh()">Refresh Now</button>
+        </div>
+    }
+
+    <!-- Header row: title + last updated + manual refresh -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0" style="font-size: 1.5rem;">Equipment Availability</h1>
+        <div class="text-muted small" id="last-updated-label">
+            Last updated @Math.Round(Model.MinutesSinceRefresh) min ago
+            <button class="btn btn-sm btn-link p-0 ms-2" onclick="manualRefresh()" aria-label="Refresh now" title="Refresh">
+                &#x21BB;
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification messages -->
+    @if (TempData["HoldSuccess"] is string holdSuccess)
+    {
+        <div class="alert alert-success">@holdSuccess</div>
+    }
+    @if (TempData["HoldError"] is string holdError)
+    {
+        <div class="alert alert-danger">@holdError</div>
+    }
+    @if (TempData["NotifySuccess"] is string notifySuccess)
+    {
+        <div class="alert alert-info">@notifySuccess</div>
+    }
+
+    <!-- Filters -->
+    <form method="get" action="/AvailabilityDashboard" class="row g-2 mb-4" id="filter-form">
+        <div class="col-auto">
+            <label for="site-filter" class="form-label fw-semibold">Site</label>
+        <select id="site-filter" name="site" class="form-select" style="min-width: 160px;" onchange="this.form.submit()">
+            <option value="">All Sites</option>
+            @foreach (var site in Model.AvailableSites)
+            {
+                if (Model.SiteFilter == site)
+                {
+                    <option value="@site" selected="selected">@site</option>
+                }
+                else
+                {
+                    <option value="@site">@site</option>
+                }
+            }
+        </select>
+        </div>
+        <div class="col-auto">
+            <label for="category-filter" class="form-label fw-semibold">Category</label>
+        <select id="category-filter" name="category" class="form-select" style="min-width: 160px;" onchange="this.form.submit()">
+            <option value="All">All Categories</option>
+            @foreach (var cat in Model.AvailableCategories)
+            {
+                if (Model.CategoryFilter == cat)
+                {
+                    <option value="@cat" selected="selected">@cat</option>
+                }
+                else
+                {
+                    <option value="@cat">@cat</option>
+                }
+            }
+        </select>
+        </div>
+    </form>
+
+    @await Html.PartialAsync("_DashboardContent", Model)
+</div>
+
+<!-- My Notify Me Subscriptions -->
+@if (Model.MySubscriptions.Count > 0)
+{
+    <div class="mt-4">
+        <h2 class="h5">My Notify Me Subscriptions</h2>
+        <ul class="list-group">
+            @foreach (var sub in Model.MySubscriptions)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        @if (sub.EquipmentItemId.HasValue)
+                        {
+                            <span>Item #@sub.EquipmentItemId</span>
+                        }
+                        else
+                        {
+                            <span>Category: @sub.Category</span>
+                        }
+                    </span>
+                    <form method="post" action="/AvailabilityDashboard/CancelSubscription">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="subscriptionId" value="@sub.Id" />
+                        <input type="hidden" name="returnSite" value="@Model.SiteFilter" />
+                        <input type="hidden" name="returnCategory" value="@Model.CategoryFilter" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                style="min-height: 44px; min-width: 44px;">
+                            Cancel Alert
+                        </button>
+                    </form>
+                </li>
+            }
+        </ul>
+    </div>
+}
+
+@section Scripts {
+<script>
+    // 5-minute auto-refresh
+    const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    let lastRefreshed = new Date();
+
+    function manualRefresh() {
+        const site = document.getElementById('site-filter')?.value ?? '';
+        const category = document.getElementById('category-filter')?.value ?? '';
+        fetch(`/AvailabilityDashboard/Refresh?site=${encodeURIComponent(site)}&category=${encodeURIComponent(category)}`)
+            .then(r => r.text())
+            .then(html => {
+                document.getElementById('dashboard-content').innerHTML = html;
+                lastRefreshed = new Date();
+                updateLastUpdatedLabel();
+                document.getElementById('staleness-warning')?.remove();
+            })
+            .catch(() => showOfflineBanner());
+    }
+
+    function updateLastUpdatedLabel() {
+        const el = document.getElementById('last-updated-label');
+        if (!el) return;
+        const mins = Math.round((new Date() - lastRefreshed) / 60000);
+        el.querySelector('.time-ago').textContent = mins + ' min ago';
+        if (mins > 5) {
+            showStalenessWarning();
+        }
+    }
+
+    function showStalenessWarning() {
+        if (!document.getElementById('staleness-warning')) {
+            const div = document.createElement('div');
+            div.id = 'staleness-warning';
+            div.className = 'alert alert-danger d-flex align-items-center';
+            div.innerHTML = '<strong>Data may be stale</strong>&nbsp;— Last updated more than 5 min ago. <button class="btn btn-sm btn-outline-danger ms-3" onclick="manualRefresh()">Refresh Now</button>';
+            document.getElementById('dashboard-root').prepend(div);
+        }
+    }
+
+    function showOfflineBanner() {
+        if (!document.getElementById('offline-banner')) {
+            const div = document.createElement('div');
+            div.id = 'offline-banner';
+            div.className = 'alert alert-warning';
+            div.innerHTML = '<strong>Offline</strong>&nbsp;— Showing cached data. Changes will sync when connectivity is restored.';
+            document.getElementById('dashboard-root').prepend(div);
+        }
+    }
+
+    // Schedule auto-refresh every 5 minutes
+    setInterval(() => {
+        manualRefresh();
+    }, REFRESH_INTERVAL_MS);
+
+    // Update the "N min ago" counter every minute
+    setInterval(updateLastUpdatedLabel, 60000);
+</script>
+}

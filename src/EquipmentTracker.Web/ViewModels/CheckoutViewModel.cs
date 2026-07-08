@@ -29,7 +29,8 @@ public class CheckoutViewModel
 
     public bool IsRestricted { get; set; }
     public string? RequiredApprovalType { get; set; }
-
+    
+    /// <summary>Optional: requested checkout duration, included in the approver push notification.</summary>
     [StringLength(100)]
     public string? CheckoutDuration { get; set; }
 }

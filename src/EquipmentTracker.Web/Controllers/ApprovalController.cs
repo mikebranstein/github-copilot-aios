@@ -136,6 +136,7 @@ public class ApprovalController : Controller
     // POST /coordinator/approvals/{id}/emergency-override
     /// <summary>
     /// AC-8: Emergency Override - Safety Admin only.
+    /// AC-8: Emergency Override — Safety Admin only.
     /// Checkout proceeds immediately; immutable audit log entry written with EmergencyOverrideFlag=true.
     /// </summary>
     [HttpPost("{id:int}/emergency-override")]
