@@ -57,4 +57,18 @@ public class UserService : IUserService
         if (user is null) return;
         user.NotificationsEnabled = enabled;
     }
+
+    // Added for Issue #117 - Approval Workflow for Restricted Equipment Checkout
+    public IReadOnlyList<ApplicationUser> GetSafetyAdmins() =>
+        _users.Where(u => u.IsSafetyAdmin).ToList().AsReadOnly();
+
+    public IReadOnlyList<ApplicationUser> GetApprovers() =>
+        _users.Where(u => u.IsCoordinator).ToList().AsReadOnly();
+
+    public void SetSafetyAdmin(int userId, bool isSafetyAdmin)
+    {
+        var user = GetById(userId);
+        if (user is null) return;
+        user.IsSafetyAdmin = isSafetyAdmin;
+    }
 }

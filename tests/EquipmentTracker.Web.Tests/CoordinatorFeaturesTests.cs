@@ -15,7 +15,9 @@ public class CoordinatorFeaturesTests
     private static (EquipmentService equipment, ApprovalService approval) CreateServices()
     {
         var equipment = new EquipmentService();
-        var approval = new ApprovalService(equipment);
+        var userSvc = new FakeUserService();
+        var pushSvc = new FakePushNotificationService();
+        var approval = new ApprovalService(equipment, userSvc, pushSvc);
         return (equipment, approval);
     }
 
@@ -258,7 +260,9 @@ public class CoordinatorFeaturesTests
     public void BulkCheckoutService_CreatesRecordWithBulkInitiatorId()
     {
         var equipment = new EquipmentService();
-        var approval = new ApprovalService(equipment);
+        var userSvc = new FakeUserService();
+        var pushSvc = new FakePushNotificationService();
+        var approval = new ApprovalService(equipment, userSvc, pushSvc);
         var bulkService = new BulkCheckoutService(equipment, approval);
 
         var item = equipment.GetAllItems().First(i => i.IsAvailable);

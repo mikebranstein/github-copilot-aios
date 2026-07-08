@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
 using EquipmentTracker.Web.ViewModels;
@@ -11,6 +12,9 @@ public class EquipmentController : Controller
     private readonly IEquipmentService _equipmentService;
     private readonly ISiteService _siteService;
     private readonly ICertificationService _certService;
+    private readonly IApprovalService? _approvalService;
+    private readonly IAccountSettingsService? _accountSettingsService;
+    private readonly IUserService? _userService;
     private readonly IConfiguration _configuration;
     private readonly IConditionAssessmentService? _conditionSvc;
 
@@ -19,11 +23,17 @@ public class EquipmentController : Controller
         ISiteService siteService,
         ICertificationService certService,
         IConfiguration configuration,
+        IApprovalService? approvalService = null,
+        IAccountSettingsService? accountSettingsService = null,
+        IUserService? userService = null,
         IConditionAssessmentService? conditionSvc = null)
     {
         _equipmentService = equipmentService;
         _siteService = siteService;
         _certService = certService;
+        _approvalService = approvalService;
+        _accountSettingsService = accountSettingsService;
+        _userService = userService;
         _configuration = configuration;
         _conditionSvc = conditionSvc;
     }
@@ -106,7 +116,9 @@ public class EquipmentController : Controller
         {
             EquipmentItemId = item.Id,
             EquipmentItemName = item.Name,
-            ConfirmedSiteId = item.SiteId
+            ConfirmedSiteId = item.SiteId,
+            IsRestricted = item.IsRestricted,
+            RequiredApprovalType = item.RequiredApprovalType
         };
         PopulateCheckoutSiteFields(model, item);
         return View(model);
@@ -114,7 +126,7 @@ public class EquipmentController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Checkout(CheckoutViewModel model)
+    public async Task<IActionResult> Checkout(CheckoutViewModel model)
     {
         var item = _equipmentService.GetItem(model.EquipmentItemId);
         if (item is null)
@@ -166,7 +178,16 @@ public class EquipmentController : Controller
             certOutcome = CertValidationOutcome.Overridden;
         }
 
-        var success = _equipmentService.Checkout(model.EquipmentItemId, model.BorrowerName, newSiteId: model.ConfirmedSiteId);
+        var borrowerUserId = User.Identity?.IsAuthenticated == true
+            && int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
+            ? uid
+            : 0;
+
+        var success = _equipmentService.Checkout(
+            model.EquipmentItemId,
+            model.BorrowerName,
+            borrowerUserId == 0 ? null : borrowerUserId,
+            newSiteId: model.ConfirmedSiteId);
         if (!success)
         {
             var currentHolder = _equipmentService.GetCurrentHolder(model.EquipmentItemId);
@@ -198,6 +219,29 @@ public class EquipmentController : Controller
                     firstCertType);
 
                 checkoutRecord.OverrideRecordId = overrideRecord.Id;
+            }
+
+            if (item.IsRestricted && _approvalService is not null && _accountSettingsService is not null && _userService is not null)
+            {
+                checkoutRecord.IsPendingApproval = true;
+
+                var settings = _accountSettingsService.GetSettings();
+                var approverUserId = _userService.GetApprovers().FirstOrDefault()?.Id;
+
+                await _approvalService.CreateRestrictedRequestAsync(
+                    checkoutRecord.Id,
+                    borrowerUserId,
+                    item.Id,
+                    approverUserId,
+                    settings.DelegateApproverId,
+                    item.Name,
+                    model.BorrowerName,
+                    model.CheckoutDuration);
+
+                TempData["SuccessMessage"] =
+                    $"Checkout request for '{model.EquipmentItemName}' submitted and pending supervisor approval. The item is reserved. You will be notified when the decision is made.";
+                TempData["PendingApproval"] = "true";
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -259,7 +303,6 @@ public class EquipmentController : Controller
         return View(model);
     }
 
-    // POST /Equipment/Return/5
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Return(int id)
@@ -281,7 +324,7 @@ public class EquipmentController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private void PopulateCheckoutSiteFields(CheckoutViewModel model, EquipmentTracker.Web.Models.EquipmentItem item)
+    private void PopulateCheckoutSiteFields(CheckoutViewModel model, EquipmentItem item)
     {
         model.CurrentSiteName = item.SiteId.HasValue ? _siteService.GetSite(item.SiteId.Value)?.Name : null;
         model.SiteOptions =

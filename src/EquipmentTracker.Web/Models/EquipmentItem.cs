@@ -10,7 +10,7 @@ public class EquipmentItem
     public int? SiteId { get; set; }
     public string SiteName { get; set; } = string.Empty;
     public DateTime LastUpdatedAtUtc { get; set; } = DateTime.UtcNow;
-
-    // Added for Issue #115 - Equipment Condition Assessment & Damage Tracking at Return
     public EquipmentLifecycleStatus LifecycleStatus { get; set; } = EquipmentLifecycleStatus.Available;
+    public bool IsRestricted { get; set; }
+    public string? RequiredApprovalType { get; set; }
 }

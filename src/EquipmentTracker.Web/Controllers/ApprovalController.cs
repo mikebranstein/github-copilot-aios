@@ -9,6 +9,7 @@ namespace EquipmentTracker.Web.Controllers;
 /// <summary>
 /// Coordinator approval queue for checkout requests.
 /// Routes: /coordinator/approvals/*
+/// Extended for Issue #117: emergency override, restricted audit log, denial reason enforcement.
 /// </summary>
 [Authorize]
 [Route("coordinator/approvals")]
@@ -74,6 +75,7 @@ public class ApprovalController : Controller
         ViewBag.ItemCategory = item?.Category ?? string.Empty;
         ViewBag.RequesterName = user?.Username ?? record?.BorrowerName ?? "(unknown)";
         ViewBag.ConditionNote = record?.ConditionNote;
+        ViewBag.IsRestricted = item?.IsRestricted ?? false;
 
         return View();
     }
@@ -109,6 +111,13 @@ public class ApprovalController : Controller
         var isCoordinator = bool.TryParse(User.FindFirstValue("IsCoordinator"), out var cv) && cv;
         if (!isCoordinator) return Forbid();
 
+        // AC-4: Denial reason is mandatory with minimum 10 characters
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length < 10)
+        {
+            TempData["ErrorMessage"] = "Denial reason is required and must be at least 10 characters.";
+            return RedirectToAction("Details", new { id });
+        }
+
         var coordinatorId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
         var success = _approvalService.Deny(id, coordinatorId, reason);
 
@@ -122,6 +131,55 @@ public class ApprovalController : Controller
         }
 
         return RedirectToAction("Index");
+    }
+
+    // POST /coordinator/approvals/{id}/emergency-override
+    /// <summary>
+    /// AC-8: Emergency Override - Safety Admin only.
+    /// Checkout proceeds immediately; immutable audit log entry written with EmergencyOverrideFlag=true.
+    /// </summary>
+    [HttpPost("{id:int}/emergency-override")]
+    [ValidateAntiForgeryToken]
+    public IActionResult EmergencyOverride(int id, [FromForm] string? overrideReason)
+    {
+        var isSafetyAdmin = bool.TryParse(User.FindFirstValue("IsSafetyAdmin"), out var sv) && sv;
+        if (!isSafetyAdmin)
+        {
+            TempData["ErrorMessage"] = "Emergency override requires the Safety Admin role.";
+            return RedirectToAction("Details", new { id });
+        }
+
+        if (string.IsNullOrWhiteSpace(overrideReason))
+        {
+            TempData["ErrorMessage"] = "Emergency override reason is mandatory and cannot be empty.";
+            return RedirectToAction("Details", new { id });
+        }
+
+        var safetyAdminId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "0");
+        var success = _approvalService.EmergencyOverride(id, safetyAdminId, overrideReason);
+
+        if (!success)
+        {
+            TempData["ErrorMessage"] = "Could not apply emergency override (request not found or already decided).";
+        }
+        else
+        {
+            TempData["SuccessMessage"] = "Emergency override applied. Checkout proceeds. Audit entry recorded.";
+        }
+
+        return RedirectToAction("Index");
+    }
+
+    // GET /coordinator/approvals/audit-log
+    /// <summary>AC-6: View immutable restricted checkout audit log.</summary>
+    [HttpGet("audit-log")]
+    public IActionResult AuditLog()
+    {
+        var isCoordinator = bool.TryParse(User.FindFirstValue("IsCoordinator"), out var cv) && cv;
+        if (!isCoordinator) return Forbid();
+
+        var log = _approvalService.GetAuditLog();
+        return View(log);
     }
 }
 

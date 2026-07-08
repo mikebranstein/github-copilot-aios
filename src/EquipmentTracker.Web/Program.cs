@@ -17,7 +17,11 @@ builder.Services.AddSingleton<ICoordinatorNotificationService, CoordinatorNotifi
 builder.Services.AddSingleton<IApprovalService, ApprovalService>();
 builder.Services.AddSingleton<IAuditExportService, AuditExportService>();
 builder.Services.AddSingleton<IBulkCheckoutService, BulkCheckoutService>();
-builder.Services.AddSingleton<IFieldBulkCheckoutService, FieldBulkCheckoutService>();
+
+// Account settings service (Issue #117 - Approval Workflow for Restricted Equipment Checkout)
+builder.Services.AddSingleton<IAccountSettingsService, AccountSettingsService>();
+
+// Offline sync service (Issue #41)
 builder.Services.AddSingleton<IOfflineSyncService, OfflineSyncService>();
 builder.Services.AddSingleton<ICertificationService, CertificationService>();
 

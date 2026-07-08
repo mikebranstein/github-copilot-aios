@@ -1,6 +1,6 @@
+using EquipmentTracker.Web.Models;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
-using EquipmentTracker.Web.Models;
 
 namespace EquipmentTracker.Web.ViewModels;
 
@@ -14,7 +14,7 @@ public class CheckoutViewModel
     public string BorrowerName { get; set; } = string.Empty;
 
     public string? CertBlockMessage { get; set; }
-    public bool IsOverrideAttempt { get; set; } = false;
+    public bool IsOverrideAttempt { get; set; }
 
     [StringLength(100)]
     public string? OverrideSupervisorName { get; set; }
@@ -26,4 +26,10 @@ public class CheckoutViewModel
     public int? ConfirmedSiteId { get; set; }
     public string? CurrentSiteName { get; set; }
     public IReadOnlyList<SelectListItem> SiteOptions { get; set; } = [];
+
+    public bool IsRestricted { get; set; }
+    public string? RequiredApprovalType { get; set; }
+
+    [StringLength(100)]
+    public string? CheckoutDuration { get; set; }
 }
