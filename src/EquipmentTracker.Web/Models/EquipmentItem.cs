@@ -27,4 +27,18 @@ public class EquipmentItem
     /// MVP supports supervisor sign-off only; cert verification is deferred.
     /// </summary>
     public string? RequiredApprovalType { get; set; }
+
+    // Added for Issue #121 — Offline-First Mobile App for Field Workers
+    /// <summary>
+    /// True when a damage / condition flag has been submitted for this item and not yet cleared.
+    /// Offline damage flags set this in the local cache immediately, blocking subsequent offline
+    /// checkouts for the same item (AC2). Syncs to the server on reconnect.
+    /// </summary>
+    public bool IsFlagged { get; set; } = false;
+
+    /// <summary>
+    /// Optional description from the most recent active damage flag.
+    /// Present when IsFlagged is true.
+    /// </summary>
+    public string? FlagDescription { get; set; }
 }

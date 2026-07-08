@@ -26,4 +26,13 @@ public class CheckoutRecord
     public int? ConditionRecordId { get; set; }
     public ReturnState? ReturnFlowState { get; set; }
     public bool IsPendingApproval { get; set; }
+
+    // Added for Issue #121 — Offline-First Mobile App for Field Workers
+    /// <summary>
+    /// UTC timestamp when the server processed this checkout during offline sync.
+    /// For OSHA dual-timestamp compliance: OfflineTimestamp records when the action was taken
+    /// offline (device-side); ServerReceivedAt records when the server received it during sync.
+    /// Null for checkouts not created via offline sync.
+    /// </summary>
+    public DateTime? ServerReceivedAt { get; set; }
 }

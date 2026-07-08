@@ -32,4 +32,11 @@ public class OfflineSyncTransaction
     /// Null for single-item transactions. Preserved on sync as the BatchTransactionId on each CheckoutRecord.
     /// </summary>
     public string? BatchTransactionId { get; set; }
+
+    // Added for Issue #121 — Offline-First Mobile App for Field Workers
+    /// <summary>
+    /// Text description of damage. Used when Type == "damage_flag".
+    /// Photos are out of scope for offline MVP (Phase 2 only).
+    /// </summary>
+    public string? Description { get; set; }
 }
