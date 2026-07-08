@@ -40,21 +40,21 @@ public class CertificationController : Controller
             {
                 var entries = g.Select(r => new CertComplianceEntry
                 {
-                    RecordId     = r.Id,
+                    RecordId = r.Id,
                     CertTypeName = certTypeById.TryGetValue(r.CertTypeId, out var ct) ? ct.Name : $"#{r.CertTypeId}",
-                    ExpiryDate   = r.ExpiryDate,
-                    Status       = r.Status
+                    ExpiryDate = r.ExpiryDate,
+                    Status = r.Status
                 }).ToList();
 
-                var overallColor = entries.Any(e => e.Color == ComplianceColor.Red)   ? ComplianceColor.Red
+                var overallColor = entries.Any(e => e.Color == ComplianceColor.Red) ? ComplianceColor.Red
                                  : entries.Any(e => e.Color == ComplianceColor.Yellow) ? ComplianceColor.Yellow
                                  : ComplianceColor.Green;
 
                 return new OperatorComplianceRow
                 {
-                    OperatorName  = g.Key,
-                    Certs         = entries,
-                    OverallColor  = overallColor
+                    OperatorName = g.Key,
+                    Certs = entries,
+                    OverallColor = overallColor
                 };
             })
             .OrderBy(r => r.OverallColor)   // RED first
@@ -63,11 +63,11 @@ public class CertificationController : Controller
 
         var model = new ComplianceDashboardViewModel
         {
-            Operators      = operatorRows,
+            Operators = operatorRows,
             TotalOperators = operatorRows.Count,
-            RedCount       = operatorRows.Count(r => r.OverallColor == ComplianceColor.Red),
-            YellowCount    = operatorRows.Count(r => r.OverallColor == ComplianceColor.Yellow),
-            GreenCount     = operatorRows.Count(r => r.OverallColor == ComplianceColor.Green)
+            RedCount = operatorRows.Count(r => r.OverallColor == ComplianceColor.Red),
+            YellowCount = operatorRows.Count(r => r.OverallColor == ComplianceColor.Yellow),
+            GreenCount = operatorRows.Count(r => r.OverallColor == ComplianceColor.Green)
         };
 
         return View(model);
@@ -282,10 +282,10 @@ public class CertificationController : Controller
 
         return new CertLibraryViewModel
         {
-            CertTypes               = certTypes,
-            Requirements            = _certService.GetAllRequirements(),
+            CertTypes = certTypes,
+            Requirements = _certService.GetAllRequirements(),
             AllCertTypesForDropdown = certTypes,
-            CertTypeSelectList      = selectList
+            CertTypeSelectList = selectList
         };
     }
 
@@ -301,13 +301,13 @@ public class CertificationController : Controller
 
         return new OperatorProfileViewModel
         {
-            OperatorName        = operatorName,
-            CertRecords         = certRecords,
-            CertTypes           = certTypes,
-            CertTypeById        = certTypeById,
+            OperatorName = operatorName,
+            CertRecords = certRecords,
+            CertTypes = certTypes,
+            CertTypeById = certTypeById,
             DocumentsByCertRecordId = docsByRecord,
-            NewCertRecord       = new AddCertRecordForm { OperatorName = operatorName },
-            CertTypeSelectList  = certTypes.Select(c => new SelectListItem(c.Name, c.Id.ToString())).ToList()
+            NewCertRecord = new AddCertRecordForm { OperatorName = operatorName },
+            CertTypeSelectList = certTypes.Select(c => new SelectListItem(c.Name, c.Id.ToString())).ToList()
         };
     }
 
@@ -337,7 +337,7 @@ public class CertificationController : Controller
             var row = new BulkCertImportRow { RowNumber = rowNumber };
 
             if (cols.Length >= 1) row.OperatorName = cols[0].Trim();
-            if (cols.Length >= 2) row.CertTypeName  = cols[1].Trim();
+            if (cols.Length >= 2) row.CertTypeName = cols[1].Trim();
             if (cols.Length >= 3 && DateTime.TryParse(cols[2].Trim(), out var issued))
                 row.IssuedDate = issued;
             if (cols.Length >= 4 && DateTime.TryParse(cols[3].Trim(), out var expiry))

@@ -15,15 +15,15 @@ public class RentalCostService : IRentalCostService
     {
         var entry = new RentalCostEntry
         {
-            Id            = _nextId++,
+            Id = _nextId++,
             AssetCategory = assetCategory,
-            PeriodStart   = periodStart,
-            PeriodEnd     = periodEnd,
-            CostAmount    = costAmount,
-            Currency      = currency,
-            EnteredBy     = enteredBy,
-            EntrySource   = "MANUAL",
-            CreatedAt     = DateTime.UtcNow
+            PeriodStart = periodStart,
+            PeriodEnd = periodEnd,
+            CostAmount = costAmount,
+            Currency = currency,
+            EnteredBy = enteredBy,
+            EntrySource = "MANUAL",
+            CreatedAt = DateTime.UtcNow
         };
         _entries.Add(entry);
         return entry;

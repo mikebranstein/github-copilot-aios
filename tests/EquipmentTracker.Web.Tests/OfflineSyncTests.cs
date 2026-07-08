@@ -23,10 +23,10 @@ public class OfflineSyncTests
         CreateServices()
     {
         var equipment = new EquipmentService();           // seeds items 1–3
-        var users     = new UserService();
+        var users = new UserService();
         users.Register("coord", "pass", isCoordinator: true);  // id 1
         users.Register("alice", "pass");                         // id 2
-        users.Register("bob",   "pass");                         // id 3
+        users.Register("bob", "pass");                         // id 3
 
         var notifications = new CoordinatorNotificationService();
         var sync = new OfflineSyncService(equipment, notifications, users);
@@ -41,11 +41,11 @@ public class OfflineSyncTests
         new()
         {
             DeviceTransactionId = id ?? Guid.NewGuid().ToString(),
-            Type                = "checkout",
-            ItemId              = itemId,
-            BorrowerUserId      = borrowerUserId,
-            OfflineTimestamp    = ts ?? DateTime.UtcNow,
-            DeviceId            = "test-device"
+            Type = "checkout",
+            ItemId = itemId,
+            BorrowerUserId = borrowerUserId,
+            OfflineTimestamp = ts ?? DateTime.UtcNow,
+            DeviceId = "test-device"
         };
 
     private static OfflineSyncTransaction MakeReturn(
@@ -56,11 +56,11 @@ public class OfflineSyncTests
         new()
         {
             DeviceTransactionId = id ?? Guid.NewGuid().ToString(),
-            Type                = "return",
-            ItemId              = itemId,
-            BorrowerUserId      = borrowerUserId,
-            OfflineTimestamp    = ts ?? DateTime.UtcNow,
-            DeviceId            = "test-device"
+            Type = "return",
+            ItemId = itemId,
+            BorrowerUserId = borrowerUserId,
+            OfflineTimestamp = ts ?? DateTime.UtcNow,
+            DeviceId = "test-device"
         };
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -135,10 +135,10 @@ public class OfflineSyncTests
         var results = sync.ProcessBatch(new[] { t2, t1 }, requestingUserId: 1);
 
         var aliceResult = results.First(r => r.DeviceTransactionId == t1.DeviceTransactionId);
-        var bobResult   = results.First(r => r.DeviceTransactionId == t2.DeviceTransactionId);
+        var bobResult = results.First(r => r.DeviceTransactionId == t2.DeviceTransactionId);
 
         // Assert: bob (later TS) wins; alice (earlier TS) is conflict
-        Assert.Equal("success",  bobResult.Status);
+        Assert.Equal("success", bobResult.Status);
         Assert.Equal("conflict", aliceResult.Status);
         Assert.Equal("bob", equipment.GetCurrentHolder(1));
     }
@@ -175,7 +175,7 @@ public class OfflineSyncTests
         var tx = MakeCheckout(itemId: 1, borrowerUserId: 2, id: id);
 
         // Act — submit same transaction twice
-        var first  = sync.ProcessBatch(new[] { tx }, requestingUserId: 2);
+        var first = sync.ProcessBatch(new[] { tx }, requestingUserId: 2);
         var second = sync.ProcessBatch(new[] { tx }, requestingUserId: 2);
 
         // Assert: both calls return "success" and item is checked out only once
@@ -194,7 +194,7 @@ public class OfflineSyncTests
         // Arrange: item 1; checkout by alice at T-10min, return by alice at T-5min
         var (sync, equipment, _) = CreateServices();
         var early = MakeCheckout(itemId: 1, borrowerUserId: 2, ts: DateTime.UtcNow.AddMinutes(-10));
-        var later = MakeReturn( itemId: 1, borrowerUserId: 2, ts: DateTime.UtcNow.AddMinutes(-5));
+        var later = MakeReturn(itemId: 1, borrowerUserId: 2, ts: DateTime.UtcNow.AddMinutes(-5));
 
         // Act — submit in reverse order; service must sort chronologically
         var results = sync.ProcessBatch(new[] { later, early }, requestingUserId: 2);

@@ -17,14 +17,14 @@ public class OfflineHardeningTests
     private static (OfflineSyncService sync, EquipmentService equipment, UserService users)
         CreateServices()
     {
-        var equipment     = new EquipmentService();
-        var users         = new UserService();
+        var equipment = new EquipmentService();
+        var users = new UserService();
         users.Register("coord", "pass", isCoordinator: true);  // id 1
         users.Register("alice", "pass");                         // id 2
-        users.Register("bob",   "pass");                         // id 3
+        users.Register("bob", "pass");                         // id 3
 
         var notifications = new CoordinatorNotificationService();
-        var sync          = new OfflineSyncService(equipment, notifications, users);
+        var sync = new OfflineSyncService(equipment, notifications, users);
         return (sync, equipment, users);
     }
 
@@ -33,11 +33,11 @@ public class OfflineHardeningTests
         new()
         {
             DeviceTransactionId = id ?? Guid.NewGuid().ToString(),
-            Type                = "checkout",
-            ItemId              = itemId,
-            BorrowerUserId      = borrowerUserId,
-            OfflineTimestamp    = ts ?? DateTime.UtcNow,
-            DeviceId            = "test-device"
+            Type = "checkout",
+            ItemId = itemId,
+            BorrowerUserId = borrowerUserId,
+            OfflineTimestamp = ts ?? DateTime.UtcNow,
+            DeviceId = "test-device"
         };
 
     private static OfflineSyncTransaction MakeReturn(
@@ -46,12 +46,12 @@ public class OfflineHardeningTests
         new()
         {
             DeviceTransactionId = id ?? Guid.NewGuid().ToString(),
-            Type                = "return",
-            ItemId              = itemId,
-            BorrowerUserId      = borrowerUserId,
-            OfflineTimestamp    = ts ?? DateTime.UtcNow,
-            DeviceId            = "test-device",
-            ConditionNotes      = conditionNotes
+            Type = "return",
+            ItemId = itemId,
+            BorrowerUserId = borrowerUserId,
+            OfflineTimestamp = ts ?? DateTime.UtcNow,
+            DeviceId = "test-device",
+            ConditionNotes = conditionNotes
         };
 
     // ── AC4: ConditionNotes field ────────────────────────────────────────────
@@ -141,17 +141,17 @@ public class OfflineHardeningTests
         var (sync, equipment, _) = CreateServices();
         var aliceTx = MakeCheckout(itemId: 1, borrowerUserId: 2,
                                    ts: DateTime.UtcNow.AddMinutes(-10));  // earlier
-        var bobTx   = MakeCheckout(itemId: 1, borrowerUserId: 3,
+        var bobTx = MakeCheckout(itemId: 1, borrowerUserId: 3,
                                    ts: DateTime.UtcNow.AddMinutes(-5));   // later
 
         // Act — coordinator submits consolidated batch (within-batch LWW)
         var results = sync.ProcessBatch(new[] { aliceTx, bobTx }, requestingUserId: 1);
 
         var aliceResult = results.First(r => r.DeviceTransactionId == aliceTx.DeviceTransactionId);
-        var bobResult   = results.First(r => r.DeviceTransactionId == bobTx.DeviceTransactionId);
+        var bobResult = results.First(r => r.DeviceTransactionId == bobTx.DeviceTransactionId);
 
         // Assert: bob wins (later timestamp), alice loses
-        Assert.Equal("success",  bobResult.Status);
+        Assert.Equal("success", bobResult.Status);
         Assert.Equal("conflict", aliceResult.Status);
         Assert.Equal("bob", equipment.GetCurrentHolder(1));
     }
@@ -216,7 +216,7 @@ public class OfflineHardeningTests
         var (sync, equipment, users) = CreateServices();
         var aliceTx = MakeCheckout(itemId: 1, borrowerUserId: 2,
                                    ts: DateTime.UtcNow.AddMinutes(-10));
-        var bobTx   = MakeCheckout(itemId: 1, borrowerUserId: 3,
+        var bobTx = MakeCheckout(itemId: 1, borrowerUserId: 3,
                                    ts: DateTime.UtcNow.AddMinutes(-5));
 
         sync.ProcessBatch(new[] { aliceTx, bobTx }, requestingUserId: 1);
@@ -241,7 +241,7 @@ public class OfflineHardeningTests
         var (sync, equipment, _) = CreateServices();
         var aliceTx = MakeCheckout(itemId: 1, borrowerUserId: 2,
                                    ts: DateTime.UtcNow.AddMinutes(-10));
-        var bobTx   = MakeCheckout(itemId: 1, borrowerUserId: 3,
+        var bobTx = MakeCheckout(itemId: 1, borrowerUserId: 3,
                                    ts: DateTime.UtcNow.AddMinutes(-5));
         sync.ProcessBatch(new[] { aliceTx, bobTx }, requestingUserId: 1);
 
@@ -267,7 +267,7 @@ public class OfflineHardeningTests
         var (sync, equipment, _) = CreateServices();
         var aliceTx = MakeCheckout(itemId: 1, borrowerUserId: 2,
                                    ts: DateTime.UtcNow.AddMinutes(-10));
-        var bobTx   = MakeCheckout(itemId: 1, borrowerUserId: 3,
+        var bobTx = MakeCheckout(itemId: 1, borrowerUserId: 3,
                                    ts: DateTime.UtcNow.AddMinutes(-5));
         sync.ProcessBatch(new[] { aliceTx, bobTx }, requestingUserId: 1);
         Assert.Equal("bob", equipment.GetCurrentHolder(1));
@@ -311,7 +311,7 @@ public class OfflineHardeningTests
         var r1 = results.First(r => r.DeviceTransactionId == t1.DeviceTransactionId);
         var r2 = results.First(r => r.DeviceTransactionId == t2.DeviceTransactionId);
         Assert.Equal("conflict", r1.Status);  // alice (earlier) loses
-        Assert.Equal("success",  r2.Status);  // bob  (later)   wins
+        Assert.Equal("success", r2.Status);  // bob  (later)   wins
         Assert.Equal("bob", equipment.GetCurrentHolder(1));
     }
 

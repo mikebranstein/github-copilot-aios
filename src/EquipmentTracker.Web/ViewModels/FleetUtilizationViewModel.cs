@@ -16,7 +16,7 @@ public class FleetUtilizationViewModel
     /// <summary>Total number of tracked assets.</summary>
     public int TotalAssets => Assets.Count;
 
-    public int IdleCount    => Assets.Count(a => a.Status == UtilizationStatus.Idle);
+    public int IdleCount => Assets.Count(a => a.Status == UtilizationStatus.Idle);
     public int MonitorCount => Assets.Count(a => a.Status == UtilizationStatus.Monitor);
     public int HealthyCount => Assets.Count(a => a.Status == UtilizationStatus.Healthy);
 }

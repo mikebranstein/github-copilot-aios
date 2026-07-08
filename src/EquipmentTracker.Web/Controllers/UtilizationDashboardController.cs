@@ -19,7 +19,7 @@ public class UtilizationDashboardController : Controller
         IUserService userService)
     {
         _utilizationService = utilizationService;
-        _userService        = userService;
+        _userService = userService;
     }
 
     // GET /UtilizationDashboard
@@ -32,7 +32,7 @@ public class UtilizationDashboardController : Controller
 
         var model = new FleetUtilizationViewModel
         {
-            Assets           = metrics,
+            Assets = metrics,
             CanExportCfoReport = currentUser?.CanExportCfoReport ?? false
         };
 

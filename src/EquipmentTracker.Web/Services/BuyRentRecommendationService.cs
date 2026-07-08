@@ -25,37 +25,37 @@ public class BuyRentRecommendationService : IBuyRentRecommendationService
         IUtilizationService utilizationService,
         IRentalCostService rentalCostService)
     {
-        _equipmentService     = equipmentService;
-        _utilizationService   = utilizationService;
-        _rentalCostService    = rentalCostService;
+        _equipmentService = equipmentService;
+        _utilizationService = utilizationService;
+        _rentalCostService = rentalCostService;
     }
 
     public BuyRentRecommendation Evaluate(string assetCategory, DateTime asOf, double breakEvenThreshold = 0.70)
     {
         // Determine days of data available (rental + utilization)
-        int rentalDays     = _rentalCostService.GetDataDaysAvailable(assetCategory, asOf);
-        int utilizDays     = GetUtilizationDataDays(assetCategory, asOf);
-        int dataDays       = Math.Max(rentalDays, utilizDays);
+        int rentalDays = _rentalCostService.GetDataDaysAvailable(assetCategory, asOf);
+        int utilizDays = GetUtilizationDataDays(assetCategory, asOf);
+        int dataDays = Math.Max(rentalDays, utilizDays);
 
         if (dataDays < MinimumDataDays)
         {
             return new BuyRentRecommendation
             {
-                AssetCategory    = assetCategory,
-                Outcome          = RecommendationOutcome.InsufficientData,
-                RentalCostYtd    = 0,
-                UtilizationRate  = 0,
-                ThresholdUsed    = breakEvenThreshold,
-                BreakEvenMonths  = null,
+                AssetCategory = assetCategory,
+                Outcome = RecommendationOutcome.InsufficientData,
+                RentalCostYtd = 0,
+                UtilizationRate = 0,
+                ThresholdUsed = breakEvenThreshold,
+                BreakEvenMonths = null,
                 DataDaysAvailable = dataDays,
-                DataSource       = "MANUAL",
-                GeneratedAt      = asOf
+                DataSource = "MANUAL",
+                GeneratedAt = asOf
             };
         }
 
         // Compute average utilization across all assets in this category over trailing 90 days
         double utilizationRate = GetCategoryUtilization(assetCategory, asOf);
-        decimal rentalCostYtd  = _rentalCostService.GetYtdCost(assetCategory, asOf);
+        decimal rentalCostYtd = _rentalCostService.GetYtdCost(assetCategory, asOf);
 
         // Break-even months estimate: 12 / utilization rate (capped at 120 months / 10 years)
         double? breakEvenMonths = utilizationRate > 0
@@ -68,15 +68,15 @@ public class BuyRentRecommendationService : IBuyRentRecommendationService
 
         return new BuyRentRecommendation
         {
-            AssetCategory    = assetCategory,
-            Outcome          = outcome,
-            RentalCostYtd    = rentalCostYtd,
-            UtilizationRate  = utilizationRate,
-            ThresholdUsed    = breakEvenThreshold,
-            BreakEvenMonths  = breakEvenMonths,
+            AssetCategory = assetCategory,
+            Outcome = outcome,
+            RentalCostYtd = rentalCostYtd,
+            UtilizationRate = utilizationRate,
+            ThresholdUsed = breakEvenThreshold,
+            BreakEvenMonths = breakEvenMonths,
             DataDaysAvailable = dataDays,
-            DataSource       = "MANUAL",
-            GeneratedAt      = asOf
+            DataSource = "MANUAL",
+            GeneratedAt = asOf
         };
     }
 
