@@ -1,5 +1,6 @@
 using EquipmentTracker.Web.Models;
 using EquipmentTracker.Web.Services;
+using System.IO;
 using Xunit;
 
 namespace EquipmentTracker.Web.Tests;
@@ -131,10 +132,42 @@ public class OfflineHardeningTests
         Assert.All(results, r => Assert.Equal("success", r.Status));
     }
 
-    // ── AC6: Last-write-wins conflict resolution ─────────────────────────────
+    // ── AC6: Offline status banner ───────────────────────────────────────────
 
     [Fact]
-    public void AC6_LastWriteWins_LaterTimestampWins_EarlierIsConflict()
+    public void AC6_OfflineBanner_Layout_ContainsBannerMarkup()
+    {
+        // Assert _Layout.cshtml contains the offline-status-banner element and offline-mode class
+        var layoutPath = Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "EquipmentTracker.Web", "Views", "Shared", "_Layout.cshtml");
+        layoutPath = Path.GetFullPath(layoutPath);
+        var content = File.ReadAllText(layoutPath);
+
+        Assert.Contains("offline-status-banner", content);
+        Assert.Contains("offline-mode", content);
+    }
+
+    [Fact]
+    public void AC6_OfflineBanner_SyncJs_ContainsBannerToggleLogic()
+    {
+        // Assert offline-sync.js contains banner visibility toggle and connectivity state
+        var syncJsPath = Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "EquipmentTracker.Web", "wwwroot", "js", "offline-sync.js");
+        syncJsPath = Path.GetFullPath(syncJsPath);
+        var content = File.ReadAllText(syncJsPath);
+
+        Assert.Contains("banner-visible", content);   // CSS class toggled on/off for the banner
+        Assert.Contains("isOnline", content);         // connectivity state variable/parameter
+    }
+
+    // ── AC7: Last-write-wins conflict resolution ─────────────────────────────
+
+    [Fact]
+    public void AC7_LastWriteWins_LaterTimestampWins_EarlierIsConflict()
     {
         // Arrange: alice (T-10 min), bob (T-5 min) — SAME batch.
         // Within-batch LWW: bob is later, bob WINS; alice is pre-marked conflict.
@@ -157,7 +190,7 @@ public class OfflineHardeningTests
     }
 
     [Fact]
-    public void AC6_LastWriteWins_EarlierTimestamp_IsNotApplied()
+    public void AC7_LastWriteWins_EarlierTimestamp_IsNotApplied()
     {
         // Arrange: alice already holds item 1 (from a sync that already ran, server-side checkout).
         // Bob sends a transaction OLDER than alice's — server record wins.
