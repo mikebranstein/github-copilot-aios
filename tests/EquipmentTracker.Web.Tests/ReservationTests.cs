@@ -23,13 +23,13 @@ public class ReservationTests
 {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static (ReservationService Service, FakeReservationNotificationService NotifySvc)
+    private static (ReservationService Service, FakeReservationNotificationService NotifySvc, EquipmentService EquipmentSvc)
         CreateServices()
     {
         var equipmentSvc = new EquipmentService();
         var notifySvc = new FakeReservationNotificationService();
         var service = new ReservationService(equipmentSvc, notifySvc);
-        return (service, notifySvc);
+        return (service, notifySvc, equipmentSvc);
     }
 
     private static (ReservationService Service, FakeReservationNotificationService NotifySvc, EquipmentService EquipmentSvc)
@@ -65,7 +65,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC1_CreateProject_ReturnsProjectWithId()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         var project = service.CreateProject("Alpha Site", today, today.AddDays(30), 1, "Site 1", 10, "alice");
@@ -81,7 +81,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC1_GetAllProjects_ReturnsCreatedProjects()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         service.CreateProject("P1", today, today.AddDays(10), 1, "Site 1", 1, "alice");
@@ -97,7 +97,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC1_TryCreateReservation_HappyPath_ReturnsReservationWithNoConflicts()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -115,7 +115,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC1_GetReservationsForProject_ReturnsCorrectReservations()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var items = GetEquipmentService().GetAllItems();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -134,7 +134,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC2_GetCalendarReservations_ReturnsReservationsWithinWindow()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -150,7 +150,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC2_GetCalendarReservations_ExcludesOutsideWindow()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -168,6 +168,8 @@ public class ReservationTests
     {
         var (service, _, equipmentSvc) = CreateServicesWithEquipment();
         var project = CreateTestProject(service, siteId: 1);
+        // Use the SAME equipment service instance that was passed to ReservationService
+        // so site IDs are correctly reflected.
         var items = equipmentSvc.GetAllItems().ToList();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
@@ -183,7 +185,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC2_GetCalendarReservations_FilterByProject()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var p1 = CreateTestProject(service, "Project Alpha");
         var p2 = CreateTestProject(service, "Project Beta");
         var items = GetEquipmentService().GetAllItems().ToList();
@@ -203,7 +205,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC3_TryCreateReservation_ConflictReturned_WhenOverlapExists()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -223,7 +225,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC3_TryCreateReservation_AdjacentDates_NoConflict()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -242,7 +244,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC3_DetectConflicts_IdentifiesConflictingProjectName()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var projectBeta = CreateTestProject(service, "Project Beta");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -262,7 +264,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC4_ConflictContainsAlternatives_WhenSameCategoryAssetAvailable()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var items = GetEquipmentService().GetAllItems().ToList();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -284,7 +286,7 @@ public class ReservationTests
     {
         // The BA constraint says "No alternatives available" is a valid state.
         // This test verifies the conflict is returned even when no alternatives exist.
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
 
         // Use a unique equipment service to restrict to single item scenario
@@ -307,7 +309,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC4_AdjustedDateRange_SuggestedWhenAssetAvailableLater()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -335,7 +337,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC5_GetCrossSiteAvailability_ReturnsAllEquipment_NoFilter()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         var summaries = service.GetCrossSiteAvailability(today, today.AddDays(13));
@@ -349,7 +351,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC5_GetCrossSiteAvailability_ReservedItem_ShowsFullyBooked()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var today = DateOnly.FromDateTime(DateTime.Today);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -367,7 +369,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC5_GetCrossSiteAvailability_PartiallyBooked_WhenOnlySomeDaysCovered()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var today = DateOnly.FromDateTime(DateTime.Today);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -386,7 +388,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC5_GetCrossSiteAvailability_FilterBySite_ReturnsOnlySiteSummaries()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         // Only request Site 1 summaries
@@ -406,7 +408,7 @@ public class ReservationTests
         // mobile reservation workflow (create → view → conflict → cancel)
         // is achievable through the service API.
 
-        var (service, notifySvc) = CreateServices();
+        var (service, notifySvc, _) = CreateServices();
         var project = CreateTestProject(service, "Mobile Project");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -440,7 +442,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_CancelReservation_ByOwner_Succeeds()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -459,7 +461,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_CancelReservation_ByNonOwner_Fails()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -476,7 +478,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_CancelReservation_ByOperationsManager_Succeeds()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -493,7 +495,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_CancelReservation_MakesEquipmentAvailable()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -516,7 +518,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_TryEditReservation_NewDates_NoConflict_Succeeds()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -537,7 +539,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC7_TryEditReservation_PastStartDate_Rejected()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -557,7 +559,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC8_CreateWithOverride_SendsDisplacedNotification()
     {
-        var (service, notifySvc) = CreateServices();
+        var (service, notifySvc, _) = CreateServices();
         var project1 = CreateTestProject(service, "Project Beta");
         var project2 = CreateTestProject(service, "Project Alpha Override");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -584,7 +586,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC8_Override_DisplacesExistingReservation()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project1 = CreateTestProject(service, "Project Beta");
         var project2 = CreateTestProject(service, "Project Alpha");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -604,7 +606,7 @@ public class ReservationTests
     [Fact]
     public void RS_AC8_Override_CalendarReflectsNewReservation()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project1 = CreateTestProject(service, "Project Beta");
         var project2 = CreateTestProject(service, "Project Alpha");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -632,7 +634,7 @@ public class ReservationTests
         // The service's TryEditReservation enforces this.
         // The controller also enforces this pre-model-state-validation.
         // Here we test the service-layer edit path.
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -649,7 +651,7 @@ public class ReservationTests
     [Fact]
     public void RS_CONST_CancelIsImmediate_CannotBeUndone()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -667,7 +669,7 @@ public class ReservationTests
     [Fact]
     public void RS_CONST_CancelledReservationNoLongerBlocksCalendar()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service);
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -686,7 +688,7 @@ public class ReservationTests
     [Fact]
     public void RS_TS1_HappyPath_ReservationCreated_WithNoConflict()
     {
-        var (service, notifySvc) = CreateServices();
+        var (service, notifySvc, _) = CreateServices();
         var project = CreateTestProject(service, "Project Alpha");
         var items = GetEquipmentService().GetAllItems();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -715,7 +717,7 @@ public class ReservationTests
     [Fact]
     public void RS_TS2_ConflictDetected_WithAlternativeSuggestions()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var projectBeta = CreateTestProject(service, "Project Beta");
         var items = GetEquipmentService().GetAllItems();
         var today = DateOnly.FromDateTime(DateTime.Today);
@@ -739,7 +741,7 @@ public class ReservationTests
     [Fact]
     public void RS_TS3_CrossSiteView_ShowsAllEquipment()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         // Operations manager view — no site filter
@@ -758,7 +760,7 @@ public class ReservationTests
     [Fact]
     public void RS_TS4_Override_WithDisplacedPartyNotification()
     {
-        var (service, notifySvc) = CreateServices();
+        var (service, notifySvc, _) = CreateServices();
         var projectBeta = CreateTestProject(service, "Project Beta");
         var projectAlpha = CreateTestProject(service, "Project Alpha");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
@@ -786,7 +788,7 @@ public class ReservationTests
     [Fact]
     public void RS_TS5_ReservationCancellation_RestoresAvailability()
     {
-        var (service, _) = CreateServices();
+        var (service, _, _) = CreateServices();
         var project = CreateTestProject(service, "Project Alpha");
         var equipmentId = GetEquipmentService().GetAllItems().First().Id;
         var today = DateOnly.FromDateTime(DateTime.Today);

@@ -22,7 +22,7 @@ public class UtilizationServiceTests
     {
         // Given: An authenticated user; the fleet has assets
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
         int expected = eqSvc.GetAllItems().Count;
 
         // When: The dashboard page loads
@@ -37,7 +37,7 @@ public class UtilizationServiceTests
     {
         // Given: Multiple assets with different utilization histories
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         var items = eqSvc.GetAllItems().ToList();
         Assert.True(items.Count >= 2, "Need at least 2 items for this test");
@@ -76,7 +76,7 @@ public class UtilizationServiceTests
     {
         // Given: An asset with very low utilization (< 40%)
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         // No checkouts = 0% utilization -> should be Idle
         var result = svc.GetFleetUtilization(DateTime.UtcNow);
@@ -89,7 +89,7 @@ public class UtilizationServiceTests
     {
         // Given: An asset checked out for 90% of trailing 3 months
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         var item = eqSvc.GetAllItems().First();
         var asOf = DateTime.UtcNow;
@@ -114,7 +114,7 @@ public class UtilizationServiceTests
     {
         // Given: An asset checked out for 55% of trailing 3 months
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         var item = eqSvc.GetAllItems().First();
         var asOf = DateTime.UtcNow;
@@ -140,8 +140,8 @@ public class UtilizationServiceTests
     {
         // Given: An asset exists
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         // When: Utilization is queried
         var result = svc.GetAssetUtilization(item.Id, DateTime.UtcNow);
@@ -154,7 +154,7 @@ public class UtilizationServiceTests
     public void GetAssetUtilization_ReturnsNull_ForNonExistentAsset()
     {
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         var result = svc.GetAssetUtilization(9999, DateTime.UtcNow);
 
@@ -166,8 +166,8 @@ public class UtilizationServiceTests
     {
         // Given: An asset that has never been checked out
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var result = svc.GetAssetUtilization(item.Id, DateTime.UtcNow);
 
@@ -182,8 +182,8 @@ public class UtilizationServiceTests
     {
         // Given: An asset checked out for 12 hours in the current month
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var asOf = DateTime.UtcNow;
         var monthStart = new DateTime(asOf.Year, asOf.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -208,11 +208,11 @@ public class UtilizationServiceTests
     {
         // Given: An asset with maintenance downtime
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var windowStart = DateTime.UtcNow.AddHours(-48);
-        var windowEnd   = DateTime.UtcNow;
+        var windowEnd = DateTime.UtcNow;
 
         // 10 hours of maintenance
         svc.AddMaintenanceDowntime(item.Id, windowStart, windowStart.AddHours(10), "Scheduled");
@@ -238,8 +238,8 @@ public class UtilizationServiceTests
     {
         // Given: Asset with higher current month activity vs historical
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var asOf = DateTime.UtcNow;
         var monthStart = new DateTime(asOf.Year, asOf.Month, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -268,7 +268,7 @@ public class UtilizationServiceTests
         // This test would require an equipment service with no seed data.
         // We verify the sorted-fleet method handles an empty list gracefully.
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
+        var svc = CreateUtilizationService(eqSvc);
 
         // Verify the service handles items gracefully (seed items exist, just checking it doesn't throw)
         var result = svc.GetFleetUtilization(DateTime.UtcNow);
@@ -281,8 +281,8 @@ public class UtilizationServiceTests
     public void AddMaintenanceDowntime_ThrowsArgumentException_WhenEndBeforeStart()
     {
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         Assert.Throws<ArgumentException>(() =>
             svc.AddMaintenanceDowntime(item.Id, DateTime.UtcNow, DateTime.UtcNow.AddHours(-1)));
@@ -292,8 +292,8 @@ public class UtilizationServiceTests
     public void GetMaintenanceDowntime_ReturnsEmpty_WhenNoRecordsAdded()
     {
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var result = svc.GetMaintenanceDowntime(item.Id);
 
@@ -304,11 +304,11 @@ public class UtilizationServiceTests
     public void GetMaintenanceDowntime_ReturnsRecord_AfterAdding()
     {
         var eqSvc = CreateEquipmentService();
-        var svc   = CreateUtilizationService(eqSvc);
-        var item  = eqSvc.GetAllItems().First();
+        var svc = CreateUtilizationService(eqSvc);
+        var item = eqSvc.GetAllItems().First();
 
         var start = DateTime.UtcNow.AddDays(-2);
-        var end   = DateTime.UtcNow.AddDays(-1);
+        var end = DateTime.UtcNow.AddDays(-1);
         svc.AddMaintenanceDowntime(item.Id, start, end, "Scheduled service");
 
         var result = svc.GetMaintenanceDowntime(item.Id);

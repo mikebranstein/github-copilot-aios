@@ -20,10 +20,10 @@ public class CfoReportAccessTests
                     CfoReportService reportSvc)
         CreateServices()
     {
-        var eqSvc     = new EquipmentService();
-        var utilSvc   = new UtilizationService(eqSvc);
+        var eqSvc = new EquipmentService();
+        var utilSvc = new UtilizationService(eqSvc);
         var rentalSvc = new RentalCostService();
-        var recSvc    = new BuyRentRecommendationService(eqSvc, utilSvc, rentalSvc);
+        var recSvc = new BuyRentRecommendationService(eqSvc, utilSvc, rentalSvc);
         var reportSvc = new CfoReportService(eqSvc, utilSvc, recSvc);
         return (eqSvc, utilSvc, rentalSvc, recSvc, reportSvc);
     }
@@ -227,7 +227,7 @@ public class CfoReportAccessTests
     [Fact]
     public void RentalCostService_GetYtdCost_SumsCurrentYearEntriesOnly()
     {
-        var svc  = new RentalCostService();
+        var svc = new RentalCostService();
         var asOf = new DateTime(2026, 6, 30, 0, 0, 0, DateTimeKind.Utc);
 
         // Current year entry
@@ -256,9 +256,9 @@ public class CfoReportAccessTests
     [Fact]
     public void RentalCostService_AddEntry_StoresCostCorrectly()
     {
-        var svc   = new RentalCostService();
+        var svc = new RentalCostService();
         var start = DateTime.UtcNow.AddMonths(-3);
-        var end   = DateTime.UtcNow;
+        var end = DateTime.UtcNow;
 
         var entry = svc.AddEntry("Loader", start, end, 12500m, "admin");
 

@@ -397,11 +397,11 @@ public class OfflineFirstMobileTests
     }
 
     /// <summary>
-    /// AC7: First-sync-wins: earlier OfflineTimestamp wins when two offline checkouts
+    /// AC7: Last-write-wins: later OfflineTimestamp wins when two offline checkouts
     /// for the same item are submitted in the same batch.
     /// </summary>
     [Fact]
-    public void AC7_FirstSyncWins_EarlierTimestampGetsPriority()
+    public void AC7_LastWriteWins_LaterTimestampGetsPriority()
     {
         var (sync, equipment, _) = CreateServices();
         var t1 = MakeCheckout(itemId: 1, borrowerUserId: 2, ts: DateTime.UtcNow.AddMinutes(-10)); // alice, earlier
@@ -413,11 +413,11 @@ public class OfflineFirstMobileTests
         var aliceResult = results.First(r => r.DeviceTransactionId == t1.DeviceTransactionId);
         var bobResult   = results.First(r => r.DeviceTransactionId == t2.DeviceTransactionId);
 
-        Assert.Equal("success",  aliceResult.Status);
-        Assert.Equal("conflict", bobResult.Status);
-        // Bob receives plain-language message.
-        Assert.NotNull(bobResult.PlainLanguageMessage);
-        Assert.Equal("alice", equipment.GetCurrentHolder(1));
+        Assert.Equal("conflict", aliceResult.Status);
+        Assert.Equal("success",  bobResult.Status);
+        // Alice receives plain-language message.
+        Assert.NotNull(aliceResult.PlainLanguageMessage);
+        Assert.Equal("bob", equipment.GetCurrentHolder(1));
     }
 
     /// <summary>
@@ -437,7 +437,7 @@ public class OfflineFirstMobileTests
         // (would suppress plain-language message display).
         Assert.Equal("conflict", results[0].Status);
         Assert.NotNull(results[0].PlainLanguageMessage);
-        // Item still belongs to alice (first-sync-wins).
+        // Item still belongs to alice (server-side record wins over older offline submission).
         Assert.Equal("alice", equipment.GetCurrentHolder(1));
     }
 

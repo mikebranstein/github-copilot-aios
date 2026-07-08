@@ -75,13 +75,13 @@ public class CheckoutHistoryController : Controller
 
         return new CheckoutHistoryRowViewModel
         {
-            ItemName          = e.ItemName,
-            HolderName        = e.HolderName,
-            CheckedOutAtUtc   = e.CheckedOutAtUtc,
-            ReturnedAtUtc     = e.ReturnedAtUtc,
-            IsOpen            = isOpen,
+            ItemName = e.ItemName,
+            HolderName = e.HolderName,
+            CheckedOutAtUtc = e.CheckedOutAtUtc,
+            ReturnedAtUtc = e.ReturnedAtUtc,
+            IsOpen = isOpen,
             ReturnDateDisplay = returnDateDisplay,
-            DurationDisplay   = durationDisplay
+            DurationDisplay = durationDisplay
         };
     }
 }

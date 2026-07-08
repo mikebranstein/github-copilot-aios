@@ -18,10 +18,10 @@ public class BuyRentRecommendationServiceTests
                     RentalCostService rentalSvc, BuyRentRecommendationService recSvc)
         CreateServices()
     {
-        var eqSvc     = new EquipmentService();
-        var utilSvc   = new UtilizationService(eqSvc);
+        var eqSvc = new EquipmentService();
+        var utilSvc = new UtilizationService(eqSvc);
         var rentalSvc = new RentalCostService();
-        var recSvc    = new BuyRentRecommendationService(eqSvc, utilSvc, rentalSvc);
+        var recSvc = new BuyRentRecommendationService(eqSvc, utilSvc, rentalSvc);
         return (eqSvc, utilSvc, rentalSvc, recSvc);
     }
 
@@ -48,7 +48,7 @@ public class BuyRentRecommendationServiceTests
         var (eqSvc, _, rentalSvc, recSvc) = CreateServices();
         eqSvc.CreateItem("Compactor Model A", "Compactor");
 
-        var asOf       = DateTime.UtcNow;
+        var asOf = DateTime.UtcNow;
         var periodStart = asOf.AddDays(-60);  // only 60 days of data
         rentalSvc.AddEntry("Compactor", periodStart, asOf, 5000m, "user1");
 
@@ -103,7 +103,7 @@ public class BuyRentRecommendationServiceTests
         var (eqSvc, utilSvc, rentalSvc, recSvc) = CreateServices();
         var item = eqSvc.CreateItem("Excavator 320", "Excavator");
 
-        var asOf      = DateTime.UtcNow;
+        var asOf = DateTime.UtcNow;
         var dataStart = asOf.AddDays(-95);   // 95 days of data
 
         // Create checkout for 72% of the last 3 months
@@ -137,7 +137,7 @@ public class BuyRentRecommendationServiceTests
         var (eqSvc, utilSvc, rentalSvc, recSvc) = CreateServices();
         var item = eqSvc.CreateItem("Compactor HC", "CompactorLow");
 
-        var asOf      = DateTime.UtcNow;
+        var asOf = DateTime.UtcNow;
         var dataStart = asOf.AddDays(-95);
 
         var window3Start = asOf.AddMonths(-3);
@@ -166,9 +166,9 @@ public class BuyRentRecommendationServiceTests
         var (eqSvc, _, rentalSvc, recSvc) = CreateServices();
         var item = eqSvc.CreateItem("Crane Big", "CraneTest");
 
-        var asOf       = DateTime.UtcNow;
-        var dataStart  = asOf.AddDays(-100);
-        var ytdStart   = new DateTime(asOf.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var asOf = DateTime.UtcNow;
+        var dataStart = asOf.AddDays(-100);
+        var ytdStart = new DateTime(asOf.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         rentalSvc.AddEntry("CraneTest", ytdStart, asOf, 75000m, "admin");
         // Also add older entry (should NOT count toward YTD)
@@ -264,7 +264,7 @@ public class BuyRentRecommendationServiceTests
         // With default 70% threshold
         var defaultResult = recSvc.Evaluate("TruckThreshold", asOf, breakEvenThreshold: 0.70);
         // With custom 60% threshold
-        var customResult  = recSvc.Evaluate("TruckThreshold", asOf, breakEvenThreshold: 0.60);
+        var customResult = recSvc.Evaluate("TruckThreshold", asOf, breakEvenThreshold: 0.60);
 
         Assert.Equal(RecommendationOutcome.ContinueRenting, defaultResult.Outcome);
         Assert.Equal(RecommendationOutcome.Buy, customResult.Outcome);

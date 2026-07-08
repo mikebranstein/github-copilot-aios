@@ -9,7 +9,7 @@ public class OfflineSyncTransaction
     /// <summary>Client-generated UUID to identify this transaction uniquely across devices.</summary>
     public string DeviceTransactionId { get; set; } = string.Empty;
 
-    /// <summary>"checkout" or "return"</summary>
+    /// <summary>"checkout", "return", or "damage_flag"</summary>
     public string Type { get; set; } = string.Empty;
 
     public int ItemId { get; set; }
@@ -23,8 +23,8 @@ public class OfflineSyncTransaction
     public string DeviceId { get; set; } = string.Empty;
 
     // Added for Issue #58
-    public string? PhotoLocalPath { get; set; }  // local file path before sync
-    public string? PhotoUploadKey { get; set; }  // SHA-256 hash for deduplication
+    public string? PhotoLocalPath { get; set; }
+    public string? PhotoUploadKey { get; set; }
 
     // Added for Issue #114 — Bulk Checkout and Return Operations for Field Teams
     /// <summary>
@@ -39,4 +39,12 @@ public class OfflineSyncTransaction
     /// Photos are out of scope for offline MVP (Phase 2 only).
     /// </summary>
     public string? Description { get; set; }
+
+    // Added for Issue #139 — PWA Offline Hardening (Phase 1)
+    /// <summary>
+    /// Free-text condition notes entered by the field worker during an offline return.
+    /// Preserved through the sync queue and written to the CheckoutRecord on server-side sync.
+    /// Null for checkout and damage-flag transactions.
+    /// </summary>
+    public string? ConditionNotes { get; set; }
 }

@@ -312,9 +312,9 @@ public class CertificationServiceTests
         var svc = CreateService();
         var certType = svc.GetCertTypeByName("Forklift Operator Certification")!;
         var r1 = svc.AddCertRecord("Alice", certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
-        var r2 = svc.AddCertRecord("Bob",   certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
+        var r2 = svc.AddCertRecord("Bob", certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
         svc.AddDocument(r1.Id, "alice.pdf", "application/pdf", "stored_alice.pdf", "Admin");
-        svc.AddDocument(r2.Id, "bob.jpg",   "image/jpeg",      "stored_bob.jpg",   "Admin");
+        svc.AddDocument(r2.Id, "bob.jpg", "image/jpeg", "stored_bob.jpg", "Admin");
 
         var docs = svc.GetDocumentsForCertRecord(r1.Id);
 
@@ -410,7 +410,7 @@ public class CertificationServiceTests
         var svc = CreateService();
         var certType = svc.GetCertTypeByName("OSHA 10 Construction")!;
         svc.AddCertRecord("Alice", certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
-        svc.AddCertRecord("Bob",   certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
+        svc.AddCertRecord("Bob", certType.Id, DateTime.Today, DateTime.Today.AddYears(1), "Admin");
 
         var all = svc.GetAllCertRecords();
 

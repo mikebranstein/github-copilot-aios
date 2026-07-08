@@ -67,31 +67,31 @@ public class UtilizationService : IUtilizationService
     {
         // Define period boundaries (all UTC)
         var currentMonthStart = new DateTime(asOf.Year, asOf.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var trailing3Start    = asOf.AddMonths(-3);
-        var trailing12Start   = asOf.AddMonths(-12);
+        var trailing3Start = asOf.AddMonths(-3);
+        var trailing12Start = asOf.AddMonths(-12);
 
-        double currentMonth    = ComputeRate(item.Id, currentMonthStart, asOf);
-        double trailing3       = ComputeRate(item.Id, trailing3Start, asOf);
-        double trailing12      = ComputeRate(item.Id, trailing12Start, asOf);
+        double currentMonth = ComputeRate(item.Id, currentMonthStart, asOf);
+        double trailing3 = ComputeRate(item.Id, trailing3Start, asOf);
+        double trailing12 = ComputeRate(item.Id, trailing12Start, asOf);
 
-        var trend = currentMonth - trailing3 >= TrendThreshold  ? UtilizationTrend.Up
-                  : trailing3 - currentMonth >= TrendThreshold  ? UtilizationTrend.Down
-                  :                                               UtilizationTrend.Flat;
+        var trend = currentMonth - trailing3 >= TrendThreshold ? UtilizationTrend.Up
+                  : trailing3 - currentMonth >= TrendThreshold ? UtilizationTrend.Down
+                  : UtilizationTrend.Flat;
 
         var status = trailing3 < 0.40 ? UtilizationStatus.Idle
                    : trailing3 <= 0.70 ? UtilizationStatus.Monitor
-                   :                      UtilizationStatus.Healthy;
+                   : UtilizationStatus.Healthy;
 
         return new AssetUtilizationMetrics
         {
-            AssetId              = item.Id,
-            AssetName            = item.Name,
-            AssetCategory        = item.Category,
-            CurrentMonthRate     = currentMonth,
-            Trailing3MonthsRate  = trailing3,
+            AssetId = item.Id,
+            AssetName = item.Name,
+            AssetCategory = item.Category,
+            CurrentMonthRate = currentMonth,
+            Trailing3MonthsRate = trailing3,
             Trailing12MonthsRate = trailing12,
-            Trend                = trend,
-            Status               = status
+            Trend = trend,
+            Status = status
         };
     }
 
@@ -103,9 +103,9 @@ public class UtilizationService : IUtilizationService
     {
         if (windowEnd <= windowStart) return 0.0;
 
-        double calendarHours     = (windowEnd - windowStart).TotalHours;
-        double maintenanceHours  = GetMaintenanceHours(assetId, windowStart, windowEnd);
-        double availableHours    = Math.Max(0, calendarHours - maintenanceHours);
+        double calendarHours = (windowEnd - windowStart).TotalHours;
+        double maintenanceHours = GetMaintenanceHours(assetId, windowStart, windowEnd);
+        double availableHours = Math.Max(0, calendarHours - maintenanceHours);
 
         if (availableHours <= 0) return 0.0;
 
@@ -120,12 +120,12 @@ public class UtilizationService : IUtilizationService
 
         foreach (var record in records)
         {
-            var start  = record.CheckedOutAtUtc;
-            var end    = record.ReturnedAtUtc ?? windowEnd;  // open checkout counts up to asOf
+            var start = record.CheckedOutAtUtc;
+            var end = record.ReturnedAtUtc ?? windowEnd;  // open checkout counts up to asOf
 
             // Clip to measurement window
-            var clippedStart = start  < windowStart ? windowStart : start;
-            var clippedEnd   = end    > windowEnd   ? windowEnd   : end;
+            var clippedStart = start < windowStart ? windowStart : start;
+            var clippedEnd = end > windowEnd ? windowEnd : end;
 
             if (clippedEnd > clippedStart)
                 total += (clippedEnd - clippedStart).TotalHours;
@@ -141,7 +141,7 @@ public class UtilizationService : IUtilizationService
             .Sum(r =>
             {
                 var clippedStart = r.DowntimeStart < windowStart ? windowStart : r.DowntimeStart;
-                var clippedEnd   = r.DowntimeEnd   > windowEnd   ? windowEnd   : r.DowntimeEnd;
+                var clippedEnd = r.DowntimeEnd > windowEnd ? windowEnd : r.DowntimeEnd;
                 return clippedEnd > clippedStart ? (clippedEnd - clippedStart).TotalHours : 0.0;
             });
     }

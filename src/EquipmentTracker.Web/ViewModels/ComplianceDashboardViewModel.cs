@@ -25,31 +25,31 @@ public class CertComplianceEntry
     /// <summary>Traffic-light color for this cert.</summary>
     public ComplianceColor Color => Status switch
     {
-        CertificationStatus.Expired      => ComplianceColor.Red,
+        CertificationStatus.Expired => ComplianceColor.Red,
         CertificationStatus.ExpiringSoon => ComplianceColor.Yellow,
-        _                                 => ComplianceColor.Green
+        _ => ComplianceColor.Green
     };
 
     public string ColorClass => Color switch
     {
-        ComplianceColor.Red    => "table-danger",
+        ComplianceColor.Red => "table-danger",
         ComplianceColor.Yellow => "table-warning",
-        _                      => "table-success"
+        _ => "table-success"
     };
 
     public string BadgeClass => Color switch
     {
-        ComplianceColor.Red    => "bg-danger",
+        ComplianceColor.Red => "bg-danger",
         ComplianceColor.Yellow => "bg-warning text-dark",
-        _                      => "bg-success"
+        _ => "bg-success"
     };
 
     public string StatusLabel => Status switch
     {
-        CertificationStatus.Expired      => "Expired",
+        CertificationStatus.Expired => "Expired",
         CertificationStatus.ExpiringSoon => "Expiring Soon",
-        CertificationStatus.Missing      => "Missing",
-        _                                 => "Compliant"
+        CertificationStatus.Missing => "Missing",
+        _ => "Compliant"
     };
 }
 

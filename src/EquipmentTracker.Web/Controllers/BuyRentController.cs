@@ -20,8 +20,8 @@ public class BuyRentController : Controller
         IUserService userService)
     {
         _recommendationService = recommendationService;
-        _rentalCostService     = rentalCostService;
-        _userService           = userService;
+        _rentalCostService = rentalCostService;
+        _userService = userService;
     }
 
     // GET /BuyRent
@@ -34,7 +34,7 @@ public class BuyRentController : Controller
 
         var model = new BuyRentDashboardViewModel
         {
-            Recommendations    = recommendations,
+            Recommendations = recommendations,
             BreakEvenThreshold = threshold
         };
 
@@ -66,7 +66,7 @@ public class BuyRentController : Controller
         _rentalCostService.AddEntry(
             model.AssetCategory,
             DateTime.SpecifyKind(model.PeriodStart, DateTimeKind.Utc),
-            DateTime.SpecifyKind(model.PeriodEnd,   DateTimeKind.Utc),
+            DateTime.SpecifyKind(model.PeriodEnd, DateTimeKind.Utc),
             model.CostAmount,
             username,
             model.Currency);

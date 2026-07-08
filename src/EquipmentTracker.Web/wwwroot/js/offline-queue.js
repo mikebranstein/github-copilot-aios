@@ -29,9 +29,10 @@ function generateTransactionId() {
  * @param {number} itemId
  * @param {number} borrowerUserId
  * @param {string} [deviceId] - optional device identifier
+ * @param {string} [conditionNotes] - AC4: free-text condition notes for returns
  * @returns {Promise<{ok: boolean, error?: string, transactionId?: string}>}
  */
-async function enqueueTransaction(type, itemId, borrowerUserId, deviceId = '') {
+async function enqueueTransaction(type, itemId, borrowerUserId, deviceId = '', conditionNotes = '') {
     const count = await window.OfflineDB.count();
 
     if (count >= QUEUE_MAX) {
@@ -54,6 +55,7 @@ async function enqueueTransaction(type, itemId, borrowerUserId, deviceId = '') {
         borrowerUserId      : borrowerUserId,
         offlineTimestamp    : new Date().toISOString(),
         deviceId            : deviceId || navigator.userAgent.slice(0, 64),
+        conditionNotes      : conditionNotes || null,   // AC4: preserve condition notes
         status              : 'pending'
     };
 

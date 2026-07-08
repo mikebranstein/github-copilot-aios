@@ -19,7 +19,7 @@ public class CfoReportController : Controller
     public CfoReportController(ICfoReportService reportService, IUserService userService)
     {
         _reportService = reportService;
-        _userService   = userService;
+        _userService = userService;
     }
 
     // GET /CfoReport
@@ -48,11 +48,11 @@ public class CfoReportController : Controller
         }
 
         var companyName = "Your Company";  // Could be sourced from account settings in v2
-        var reportData  = _reportService.GenerateReport(DateTime.UtcNow, companyName);
+        var reportData = _reportService.GenerateReport(DateTime.UtcNow, companyName);
 
         var model = new CfoReportViewModel
         {
-            ReportData   = reportData,
+            ReportData = reportData,
             IsAuthorized = true
         };
 

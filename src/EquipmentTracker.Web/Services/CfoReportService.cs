@@ -23,8 +23,8 @@ public class CfoReportService : ICfoReportService
         IUtilizationService utilizationService,
         IBuyRentRecommendationService recommendationService)
     {
-        _equipmentService      = equipmentService;
-        _utilizationService    = utilizationService;
+        _equipmentService = equipmentService;
+        _utilizationService = utilizationService;
         _recommendationService = recommendationService;
     }
 
@@ -35,7 +35,7 @@ public class CfoReportService : ICfoReportService
         DateTime? periodEnd = null,
         double breakEvenThreshold = 0.70)
     {
-        var end   = periodEnd   ?? asOf;
+        var end = periodEnd ?? asOf;
         var start = periodStart ?? asOf.AddMonths(-12);
 
         var allItems = _equipmentService.GetAllItems();
@@ -45,9 +45,9 @@ public class CfoReportService : ICfoReportService
             return new CfoReportData
             {
                 CompanyName = companyName,
-                ReportDate  = asOf,
+                ReportDate = asOf,
                 PeriodStart = start,
-                PeriodEnd   = end,
+                PeriodEnd = end,
                 IsEmptyState = true
             };
         }
@@ -66,12 +66,12 @@ public class CfoReportService : ICfoReportService
             .Take(3)
             .Select(r => new BuyRentRecommendationData
             {
-                AssetCategory    = r.AssetCategory,
+                AssetCategory = r.AssetCategory,
                 RecommendationText = BuildRecommendationText(r),
-                RentalCostYtd    = r.RentalCostYtd,
-                UtilizationRate  = r.UtilizationRate,
-                BreakEvenMonths  = r.BreakEvenMonths,
-                DataSource       = r.DataSource
+                RentalCostYtd = r.RentalCostYtd,
+                UtilizationRate = r.UtilizationRate,
+                BreakEvenMonths = r.BreakEvenMonths,
+                DataSource = r.DataSource
             })
             .ToList()
             .AsReadOnly();
@@ -81,15 +81,15 @@ public class CfoReportService : ICfoReportService
 
         return new CfoReportData
         {
-            FleetUtilizationSummary  = fleetMetrics,
+            FleetUtilizationSummary = fleetMetrics,
             EstimatedAnnualBudgetWaste = budgetWaste,
-            TopRecommendations       = top3,
-            MonthlyTrend             = monthlyTrend,
-            CompanyName              = companyName,
-            ReportDate               = asOf,
-            PeriodStart              = start,
-            PeriodEnd                = end,
-            IsEmptyState             = false
+            TopRecommendations = top3,
+            MonthlyTrend = monthlyTrend,
+            CompanyName = companyName,
+            ReportDate = asOf,
+            PeriodStart = start,
+            PeriodEnd = end,
+            IsEmptyState = false
         };
     }
 
@@ -133,8 +133,8 @@ public class CfoReportService : ICfoReportService
 
             points.Add(new MonthlyTrendPoint
             {
-                MonthLabel                   = monthEnd.ToString("MMM yyyy"),
-                AverageFleetUtilizationRate  = avg
+                MonthLabel = monthEnd.ToString("MMM yyyy"),
+                AverageFleetUtilizationRate = avg
             });
         }
         return points.AsReadOnly();

@@ -2,19 +2,22 @@
  * offline-db.js — IndexedDB wrapper for Equipment Tracker offline queue.
  *
  * AC1: Provides a pendingTransactions store backed by IndexedDB.
+ * AC4: conditionNotes field added to pendingTransactions schema (DB_VERSION 2).
  * AC6: IndexedDB persistence is a browser-level guarantee — data survives app close
  *      and browser restart without any extra action from application code.
  *
- * Database: EquipmentTrackerOffline  v1
+ * Database: EquipmentTrackerOffline  v2
  * Store   : pendingTransactions       keyPath: deviceTransactionId
  */
 
 const DB_NAME    = 'EquipmentTrackerOffline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;  // bumped for conditionNotes field (AC4)
 const STORE_NAME = 'pendingTransactions';
 
 /**
  * Opens (or creates) the IndexedDB database and returns a Promise<IDBDatabase>.
+ * Version 2 migration: no schema changes (conditionNotes is a plain field, no index
+ * needed); existing records without conditionNotes default to null in JS.
  */
 function openDb() {
     return new Promise((resolve, reject) => {
