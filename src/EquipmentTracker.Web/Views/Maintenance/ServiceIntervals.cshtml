@@ -1,0 +1,103 @@
+@model EquipmentTracker.Web.ViewModels.ServiceIntervalAdminViewModel
+@using EquipmentTracker.Web.Models
+
+@{
+    ViewData["Title"] = "Service Interval Configuration";
+}
+
+<div class="container mt-4">
+    <h1>⚙️ Service Interval Configuration</h1>
+    <p class="text-muted">Configure maintenance intervals per equipment category. Supports hours-based and time-based triggers.</p>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success">@TempData["Success"]</div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    @* Configured Intervals *@
+    @if (Model.Intervals.Any())
+    {
+        <h3>Configured Intervals</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Interval Type</th>
+                    <th>Interval Value</th>
+                    <th>Lead Time / Caution Threshold</th>
+                    <th>Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var interval in Model.Intervals)
+                {
+                    <tr>
+                        <td>@interval.Category</td>
+                        <td>@(interval.IntervalType == IntervalType.Hours ? "Hours-Based" : "Time-Based (Calendar)")</td>
+                        <td>
+                            @interval.IntervalValue
+                            @(interval.IntervalType == IntervalType.Hours ? "operating hours" : "days")
+                        </td>
+                        <td>
+                            @if (interval.IntervalType == IntervalType.Hours)
+                            {
+                                <span>Within 10% of interval (@(interval.IntervalValue * 0.9)–@interval.IntervalValue hrs)</span>
+                            }
+                            else
+                            {
+                                <span>@interval.LeadTimeDays days before due date</span>
+                            }
+                        </td>
+                        <td>@interval.CreatedAtUtc.ToString("MMM d, yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="alert alert-info">No service intervals configured yet. Add one below.</div>
+    }
+
+    @* Add/Update Interval Form *@
+    <h3 class="mt-4">Add or Update Service Interval</h3>
+    <form method="post" action="@Url.Action("UpsertServiceInterval")">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Equipment Category *</label>
+                <input type="text" name="Category" class="form-control" placeholder="e.g. Crane, Excavator, Safety Vest" required />
+                <div class="form-text">Must match category name in Equipment Tracker.</div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Interval Type *</label>
+                <select name="IntervalType" class="form-select">
+                    <option value="@((int)IntervalType.Hours)">Hours-Based</option>
+                    <option value="@((int)IntervalType.TimeBased)">Time-Based (Calendar)</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Interval Value *</label>
+                <input type="number" name="IntervalValue" class="form-control" min="1" step="1" placeholder="e.g. 250" required />
+                <div class="form-text">Hours or days between services.</div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Lead Time (days)</label>
+                <input type="number" name="LeadTimeDays" class="form-control" value="14" min="1" />
+                <div class="form-text">Days before due → Caution (time-based only).</div>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">Save Interval</button>
+            </div>
+        </div>
+    </form>
+
+    <div class="mt-4">
+        <a href="@Url.Action("Dashboard")" class="btn btn-outline-secondary">← Back to Dashboard</a>
+    </div>
+</div>
