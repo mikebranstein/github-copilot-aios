@@ -1,0 +1,140 @@
+@model EquipmentTracker.Web.ViewModels.ConditionHistoryViewModel
+@using EquipmentTracker.Web.Models
+@{
+    ViewData["Title"] = $"Condition History – {Model.EquipmentItemName}";
+    Layout = "_Layout";
+}
+
+<div class="container py-3">
+    <div class="d-flex align-items-center mb-3">
+        <a asp-controller="Equipment" asp-action="Index" class="btn btn-outline-secondary btn-sm me-3">
+            &larr; Back to Equipment
+        </a>
+        <div>
+            <h4 class="mb-0">📋 Condition History</h4>
+            <p class="text-muted mb-0">
+                @Model.EquipmentItemName
+                @{
+                    var statusBadge = Model.EquipmentStatus == EquipmentLifecycleStatus.Lost ? "bg-dark" :
+                                      Model.EquipmentStatus == EquipmentLifecycleStatus.Maintenance ? "bg-warning text-dark" :
+                                      Model.EquipmentStatus == EquipmentLifecycleStatus.CheckedOut ? "bg-info text-dark" :
+                                      "bg-success";
+                }
+                <span class="badge @statusBadge ms-2">@Model.EquipmentStatus</span>
+            </p>
+        </div>
+    </div>
+
+    @if (Model.EquipmentStatus == EquipmentLifecycleStatus.Lost)
+    {
+        <div class="alert alert-dark">
+            ❌ This item is currently flagged as <strong>Lost</strong>. It cannot be checked out
+            until an administrator reactivates it.
+        </div>
+    }
+
+    @if (!Model.History.Any())
+    {
+        <div class="alert alert-info">No condition records found for this item.</div>
+    }
+    else
+    {
+        <p class="text-muted small">@Model.History.Count condition record(s) — reverse chronological order.</p>
+
+        @foreach (var entry in Model.History)
+        {
+            <div class="card mb-3 border-start border-4 @(entry.Grade switch {
+                ConditionGrade.Good => "border-success",
+                ConditionGrade.Worn => "border-warning",
+                ConditionGrade.Damaged => "border-danger",
+                ConditionGrade.Lost => "border-dark",
+                _ => "border-secondary"
+            })">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="badge @entry.GradeBadgeClass fs-6">@entry.Grade</span>
+                    <small class="text-muted">
+                        @entry.ConditionServerTimestampUtc.ToString("yyyy-MM-dd HH:mm") UTC
+                        @if (entry.SyncStatus == ReturnState.PendingPhotoSync)
+                        {
+                            <span class="badge bg-secondary ms-1">⏳ Photos pending sync</span>
+                        }
+                    </small>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <div class="text-muted small">Operator</div>
+                            <div class="fw-semibold">@entry.OperatorName</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Checked Out</div>
+                            <div>@entry.CheckedOutAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Returned</div>
+                            <div>
+                                @if (entry.ReturnedAtUtc.HasValue)
+                                {
+                                    @entry.ReturnedAtUtc.Value.ToString("yyyy-MM-dd HH:mm")
+                                    <text> UTC</text>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning text-dark">Still Out</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Record #</div>
+                            <div class="font-monospace small">CR-@entry.ConditionRecordId</div>
+                        </div>
+                    </div>
+
+                    @* Photos *@
+                    @if (entry.Photos.Any())
+                    {
+                        <div class="mt-2">
+                            <div class="text-muted small mb-1">📷 @entry.Photos.Count photo(s) attached</div>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var photo in entry.Photos)
+                                {
+                                    <div class="position-relative">
+                                        @if (!string.IsNullOrEmpty(photo.FileUrl))
+                                        {
+                                            <img src="@photo.FileUrl" alt="Condition photo"
+                                                 style="width:80px;height:80px;object-fit:cover;border-radius:4px;"
+                                                 loading="lazy" />
+                                        }
+                                        @if (photo.UploadStatus == PhotoUploadStatus.Pending)
+                                        {
+                                            <span class="position-absolute top-0 end-0 badge bg-warning text-dark" style="font-size:0.6rem;">⏳</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @* Downstream workflow flags *@
+                    @if (entry.HasMaintenanceTicket || entry.HasLostFlag || entry.HasConflictAlert)
+                    {
+                        <div class="mt-2 d-flex flex-wrap gap-1">
+                            @if (entry.HasMaintenanceTicket)
+                            {
+                                <span class="badge bg-danger">🔧 Maintenance ticket created</span>
+                            }
+                            @if (entry.HasLostFlag)
+                            {
+                                <span class="badge bg-dark">❌ Flagged as Lost</span>
+                            }
+                            @if (entry.HasConflictAlert)
+                            {
+                                <span class="badge bg-warning text-dark">📅 Scheduling conflict alert</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

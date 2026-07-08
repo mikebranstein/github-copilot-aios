@@ -161,7 +161,7 @@ public class ReservationService : IReservationService
             {
                 existing.EquipmentName = item.Name;
                 existing.EquipmentCategory = item.Category;
-                existing.SiteId = item.SiteId;
+                existing.SiteId = item.SiteId ?? 0;
                 existing.SiteName = item.SiteName;
             }
 
@@ -286,7 +286,7 @@ public class ReservationService : IReservationService
                     EquipmentId = item.Id,
                     EquipmentName = item.Name,
                     Category = item.Category,
-                    SiteId = item.SiteId,
+                    SiteId = item.SiteId ?? 0,
                     SiteName = item.SiteName,
                     Status = status,
                     BookedDayCount = bookedCount,

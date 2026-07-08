@@ -1,22 +1,64 @@
 @{
-    ViewData["Title"] = "Return Confirmed";
-    Layout = "_Layout";
+    ViewData["Title"] = "Return Successful";
+    Layout = "_MobileLayout";
+    var item = ViewBag.Item as EquipmentTracker.Web.Models.EquipmentItem;
+    var grade = ViewBag.ReturnedConditionGrade as string;
+    var conflictAlert = ViewBag.ConflictAlertMessage as string;
 }
 
-<div class="container-fluid px-2 py-4 text-center">
-    <div class="mb-4" style="font-size:3rem;">↩️</div>
-    <h4 class="mb-2">Return Confirmed!</h4>
-    <p class="text-muted mb-4">@ViewBag.SuccessMessage</p>
+<div class="mobile-container">
+    <h2 class="mobile-heading">Return Complete</h2>
 
-    <div class="d-grid gap-2">
-        <a href="/mobile/return/scan" class="btn btn-primary btn-lg" style="min-height:52px;">
-            Return another item
-        </a>
-        <a href="/MobileEquipment/Index" class="btn btn-outline-secondary" style="min-height:48px;">
-            Browse equipment catalog
-        </a>
-        <a href="/profile" class="btn btn-outline-secondary" style="min-height:48px;">
-            View my history
-        </a>
+    <div class="alert alert-success" role="alert">
+        @ViewBag.SuccessMessage
+    </div>
+
+    @if (!string.IsNullOrEmpty(grade))
+    {
+        var badgeClass = grade switch {
+            "Good"    => "badge-good",
+            "Worn"    => "badge-worn",
+            "Damaged" => "badge-damaged",
+            "Lost"    => "badge-lost",
+            _         => "badge-secondary"
+        };
+        <div class="condition-badge @badgeClass" role="status" aria-label="Condition grade: @grade">
+            Condition: <strong>@grade</strong>
+        </div>
+
+        @* AC3: Maintenance ticket created for Damaged *@
+        @if (grade == "Damaged")
+        {
+            <div class="alert alert-warning mt-2" role="alert">
+                <strong>Maintenance ticket created.</strong> The maintenance coordinator has been notified.
+            </div>
+        }
+
+        @* AC4: Lost item flagged *@
+        @if (grade == "Lost")
+        {
+            <div class="alert alert-danger mt-2" role="alert">
+                <strong>Equipment marked as Lost.</strong> Ops director and finance have been notified.
+                This item has been removed from circulation.
+            </div>
+        }
+    }
+
+    @* AC6: Scheduling conflict alert *@
+    @if (!string.IsNullOrEmpty(conflictAlert))
+    {
+        <div class="alert alert-warning mt-2" role="alert">
+            <strong>Scheduling conflict:</strong> @conflictAlert
+        </div>
+    }
+
+    <div class="form-actions mt-3">
+        <a href="/mobile/return/scan" class="btn btn-primary">Return Another Item</a>
+        @if (item is not null)
+        {
+            <a href="/Equipment/ConditionHistory/@item.Id" class="btn btn-outline-secondary">
+                View Condition History
+            </a>
+        }
     </div>
 </div>

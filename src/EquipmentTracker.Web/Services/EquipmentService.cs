@@ -11,9 +11,9 @@ public class EquipmentService : IEquipmentService
 
     public EquipmentService()
     {
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Laptop", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available });
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Projector", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available });
-        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Whiteboard Marker Set", Category = "Stationery", IsAvailable = true, Status = EquipmentStatus.Available });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Laptop", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available, LifecycleStatus = EquipmentLifecycleStatus.Available });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Projector", Category = "Electronics", IsAvailable = true, Status = EquipmentStatus.Available, LifecycleStatus = EquipmentLifecycleStatus.Available });
+        _items.Add(new EquipmentItem { Id = _nextItemId++, Name = "Whiteboard Marker Set", Category = "Stationery", IsAvailable = true, Status = EquipmentStatus.Available, LifecycleStatus = EquipmentLifecycleStatus.Available });
     }
 
     public IReadOnlyList<EquipmentItem> GetAllItems() => _items.AsReadOnly();
@@ -29,6 +29,7 @@ public class EquipmentService : IEquipmentService
             Category = category,
             IsAvailable = true,
             Status = EquipmentStatus.Available,
+            LifecycleStatus = EquipmentLifecycleStatus.Available,
             LastUpdatedAtUtc = DateTime.UtcNow
         };
         _items.Add(item);
@@ -43,6 +44,7 @@ public class EquipmentService : IEquipmentService
 
         item.IsAvailable = false;
         item.Status = EquipmentStatus.InUse;
+        item.LifecycleStatus = EquipmentLifecycleStatus.CheckedOut;
         item.LastUpdatedAtUtc = DateTime.UtcNow;
 
         if (newSiteId.HasValue)
@@ -73,6 +75,7 @@ public class EquipmentService : IEquipmentService
 
         item.IsAvailable = true;
         item.Status = EquipmentStatus.Available;
+        item.LifecycleStatus = EquipmentLifecycleStatus.Available;
         item.LastUpdatedAtUtc = DateTime.UtcNow;
 
         var record = _records
@@ -189,6 +192,13 @@ public class EquipmentService : IEquipmentService
 
         item.Status = status;
         item.IsAvailable = status == EquipmentStatus.Available;
+        item.LifecycleStatus = status switch
+        {
+            EquipmentStatus.Available => EquipmentLifecycleStatus.Available,
+            EquipmentStatus.InUse => EquipmentLifecycleStatus.CheckedOut,
+            EquipmentStatus.Maintenance => EquipmentLifecycleStatus.Maintenance,
+            _ => item.LifecycleStatus
+        };
         item.LastUpdatedAtUtc = DateTime.UtcNow;
         return true;
     }

@@ -50,6 +50,8 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.SlidingExpiration = true;
     });
 
+builder.Services.AddSingleton<IConditionAssessmentService, ConditionAssessmentService>();
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

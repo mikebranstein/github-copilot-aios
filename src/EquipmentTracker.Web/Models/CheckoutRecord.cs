@@ -38,4 +38,10 @@ public class CheckoutRecord
     // Added for Issue #120 — Operator Certification & Compliance Enforcement
     public CertValidationOutcome CertValidationResult { get; set; } = CertValidationOutcome.NotRequired;
     public int? OverrideRecordId { get; set; }
+
+    // Added for Issue #115 — Equipment Condition Assessment & Damage Tracking at Return
+    /// <summary>ID of the ConditionRecord created during this return cycle (immutable once set).</summary>
+    public int? ConditionRecordId { get; set; }
+    /// <summary>Return flow state: used to support offline photo sync queue.</summary>
+    public ReturnState? ReturnFlowState { get; set; }
 }
