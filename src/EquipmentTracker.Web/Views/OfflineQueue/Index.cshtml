@@ -35,7 +35,7 @@
                     <th>Item ID</th>
                     <th>Offline Time</th>
                     <th>Status</th>
-                    <th>Details</th>
+                    <th>Details / Condition Notes</th>
                 </tr>
             </thead>
             <tbody id="queue-tbody">
@@ -75,8 +75,10 @@
             const time        = tx.offlineTimestamp
                 ? new Date(tx.offlineTimestamp).toLocaleString()
                 : '—';
-            const details     = tx.conflictDetails
+            const details = tx.conflictDetails
                 ? `<span class="text-danger small">${escapeHtml(tx.conflictDetails.slice(0, 120))}</span>`
+                : tx.conditionNotes
+                ? `<span class="text-info small">📝 ${escapeHtml(tx.conditionNotes.slice(0, 80))}</span>`
                 : '—';
 
             const row = document.createElement('tr');
@@ -145,7 +147,7 @@
         const el = document.getElementById('catalog-freshness');
         try {
             // Open catalog cache and look for the snapshot entry
-            const cache    = await caches.open('equipment-tracker-catalog-v1');
+            const cache    = await caches.open('equipment-tracker-catalog-v2');
             const response = await cache.match('/api/offline/catalog-snapshot');
 
             if (!response) {

@@ -5,23 +5,22 @@ namespace EquipmentTracker.Web.Services;
 public interface IOfflineSyncService
 {
     /// <summary>
-    /// Processes a batch of offline transactions in chronological order.
-    /// Supported transaction types: "checkout", "return", "damage_flag".
+    /// Processes a batch of offline transactions in chronological order using last-write-wins
+    /// for competing checkout transactions on the same item.
+    /// Supported transaction types: "checkout", "return", and "damage_flag".
     ///
-    /// Conflict resolution (first-sync-wins):
-    ///   - checkout: If an item is already checked out by a different user, the conflicting
-    ///     transaction is rejected with a plain-language message and a CoordinatorNotification
-    ///     is created.
-    ///   - damage_flag: Server-authoritative; flags are always applied (no checkout-style conflict).
-    ///   - return: Server-authoritative; idempotent if already returned.
+    /// Conflict handling:
+    ///   - checkout: later offline timestamp wins when competing offline records exist;
+    ///     server-side active checkouts still win over older offline submissions.
+    ///   - damage_flag: server-authoritative; flags are always applied.
+    ///   - return: server-authoritative; idempotent if already returned.
     ///
-    /// OSHA dual-timestamp compliance (Issue #121):
-    ///   - SyncResult.ServerReceivedAt is set to DateTime.UtcNow for each successfully processed tx.
-    ///   - CheckoutRecord.OfflineTimestamp (device-side) and CheckoutRecord.ServerReceivedAt (sync)
-    ///     are both stored.
+    /// Dual-timestamp support:
+    ///   - SyncResult.ServerReceivedAt is set for each successfully applied transaction.
+    ///   - CheckoutRecord.OfflineTimestamp and CheckoutRecord.ServerReceivedAt are both stored.
     ///   - DamageFlag.DeviceTimestamp and DamageFlag.ServerReceivedAt are both stored.
     /// </summary>
-    /// <param name="transactions">Transactions from the device, sorted chronologically before processing.</param>
+    /// <param name="transactions">Transactions from the device; they are sorted by OfflineTimestamp before processing.</param>
     /// <param name="requestingUserId">Authenticated user submitting the sync request.</param>
     IReadOnlyList<SyncResult> ProcessBatch(IReadOnlyList<OfflineSyncTransaction> transactions, int requestingUserId);
 
@@ -29,4 +28,10 @@ public interface IOfflineSyncService
     /// Returns the stored result for a previously processed transaction, or null if unknown.
     /// </summary>
     SyncResult? GetResult(string deviceTransactionId);
+
+    /// <summary>
+    /// Coordinator manually overrides a conflict result, forcing the specified transaction to win.
+    /// Creates an audit log entry.
+    /// </summary>
+    SyncResult? CoordinatorOverride(string deviceTransactionId, int coordinatorUserId, string overrideReason);
 }

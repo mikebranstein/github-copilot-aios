@@ -1,0 +1,18 @@
+{
+  "name": "Team Equipment Tracker",
+  "short_name": "EquipTracker",
+  "description": "Field equipment checkout and return tracker — works offline.",
+  "start_url": "/MobileEquipment",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["productivity", "utilities"]
+}

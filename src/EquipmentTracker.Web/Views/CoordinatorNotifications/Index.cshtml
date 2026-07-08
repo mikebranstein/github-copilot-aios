@@ -21,9 +21,42 @@
             @foreach (var notification in Model.Notifications)
             {
                 <div class="list-group-item d-flex justify-content-between align-items-start">
-                    <div>
+                    <div class="flex-grow-1">
                         <p class="mb-1">@notification.Message</p>
                         <small class="text-muted">@notification.CreatedAtUtc.ToString("MMM d, yyyy HH:mm") UTC</small>
+
+                        @* AC7: Coordinator override UI — shown for conflict notifications *@
+                        @if (notification.Message.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div class="mt-2 p-2 border border-warning rounded bg-light">
+                                <small class="fw-bold text-warning-emphasis">⚠️ Conflict detected — Override Option</small>
+                                <form method="post"
+                                      id="override-form-@notification.Id"
+                                      class="mt-1">
+                                    @Html.AntiForgeryToken()
+                                    <div class="input-group input-group-sm">
+                                        <input type="hidden"
+                                               name="deviceTransactionId"
+                                               id="override-txid-@notification.Id"
+                                               value="" />
+                                        <input type="text"
+                                               name="overrideReason"
+                                               class="form-control"
+                                               placeholder="Reason for override (required)"
+                                               required />
+                                        <button type="button"
+                                                class="btn btn-sm btn-warning"
+                                                onclick="applyOverride('@notification.Id')">
+                                            Force Apply
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">
+                                        Enter the DeviceTransactionId from the conflict message above and a reason.
+                                        This action is logged in the audit trail.
+                                    </small>
+                                </form>
+                            </div>
+                        }
                     </div>
                     <form method="post" action="/coordinator/notifications/@notification.Id/read" class="ms-2 flex-shrink-0">
                         @Html.AntiForgeryToken()
@@ -40,3 +73,57 @@
         <a href="/MobileEquipment/Index" class="btn btn-outline-secondary">← Back to catalog</a>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    // AC7: Coordinator override — extract DeviceTransactionId from the notification message
+    // and POST to /api/offline/conflict/{id}/override
+    async function applyOverride(notificationId) {
+        const form = document.getElementById('override-form-' + notificationId);
+        const reasonInput = form.querySelector('input[name="overrideReason"]');
+        const txidInput   = form.querySelector('input[name="deviceTransactionId"]');
+
+        const reason = reasonInput.value.trim();
+        if (!reason) { alert('Please enter a reason for the override.'); return; }
+
+        // Extract deviceTransactionId from the notification message text
+        const msgEl = form.closest('.list-group-item').querySelector('p.mb-1');
+        const msgText = msgEl ? msgEl.textContent : '';
+        const txidMatch = msgText.match(/device transaction ([0-9a-f-]{36})/i);
+        const txid = txidMatch ? txidMatch[1] : txidInput.value;
+
+        if (!txid) {
+            alert('Could not extract DeviceTransactionId from the message. Please copy it manually.');
+            return;
+        }
+
+        const btn = form.querySelector('button[type="button"]');
+        btn.disabled = true;
+        btn.textContent = '⏳ Applying…';
+
+        try {
+            const resp = await fetch('/api/offline/conflict/' + encodeURIComponent(txid) + '/override', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ overrideReason: reason })
+            });
+
+            if (resp.ok) {
+                const result = await resp.json();
+                alert(`Override applied. Status: ${result.status}. Audit log entry created.`);
+                form.closest('.list-group-item').classList.add('border-success');
+                btn.textContent = '✅ Applied';
+            } else {
+                const err = await resp.json().catch(() => ({ error: resp.statusText }));
+                alert('Override failed: ' + (err.error || resp.status));
+                btn.disabled = false;
+                btn.textContent = 'Force Apply';
+            }
+        } catch (ex) {
+            alert('Network error: ' + ex.message);
+            btn.disabled = false;
+            btn.textContent = 'Force Apply';
+        }
+    }
+</script>
+}

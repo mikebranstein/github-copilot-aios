@@ -14,11 +14,16 @@ public class OfflineSyncController : Controller
 {
     private readonly IOfflineSyncService _syncService;
     private readonly IEquipmentService _equipmentService;
+    private readonly IUserService _userService;
 
-    public OfflineSyncController(IOfflineSyncService syncService, IEquipmentService equipmentService)
+    public OfflineSyncController(
+        IOfflineSyncService syncService,
+        IEquipmentService equipmentService,
+        IUserService userService)
     {
         _syncService = syncService;
         _equipmentService = equipmentService;
+        _userService = userService;
     }
 
     [HttpPost("sync")]
@@ -48,14 +53,57 @@ public class OfflineSyncController : Controller
         return Ok(result);
     }
 
-    // ── GET /api/offline/catalog-snapshot ────────────────────────────────────
+    /// <summary>
+    /// AC5: Lightweight server probe endpoint.
+    /// The client sends a HEAD request to this endpoint to verify the server is
+    /// reachable before starting the 30-second sync clock.
+    /// Returns 200 OK with no body. No authentication required so unauthenticated
+    /// captive portals always fail (they return 200 for a different domain).
+    /// </summary>
+    [AllowAnonymous]
+    [HttpHead("probe")]
+    [HttpGet("probe")]
+    public IActionResult Probe()
+    {
+        return Ok();
+    }
+
+    /// <summary>
+    /// AC7: Coordinator override — force-apply a conflicted transaction.
+    /// Only coordinators may call this endpoint.
+    /// Creates an immutable audit log entry.
+    /// </summary>
+    [HttpPost("conflict/{deviceTransactionId}/override")]
+    public IActionResult OverrideConflict(
+        string deviceTransactionId,
+        [FromBody] ConflictOverrideRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(deviceTransactionId))
+            return BadRequest(new { error = "deviceTransactionId is required." });
+
+        int userId = GetCurrentUserId();
+        if (userId <= 0)
+            return Unauthorized();
+
+        var user = _userService.GetById(userId);
+        if (user is null || !user.IsCoordinator)
+            return Forbid();
+
+        var result = _syncService.CoordinatorOverride(
+            deviceTransactionId,
+            userId,
+            request?.OverrideReason ?? "(no reason given)");
+
+        if (result is null)
+            return NotFound(new { error = $"Transaction {deviceTransactionId} not found." });
+
+        return Ok(result);
+    }
 
     /// <summary>
     /// Returns all equipment items as a JSON snapshot for offline catalog caching.
-    /// AC2: Service Worker caches this response. Includes a "generatedAt" field so
-    /// the client can show "As of [timestamp]" and warn if cache is >24 h old.
-    /// Issue #121: IsFlagged and FlagDescription included so mobile client can reflect
-    /// damage flag status in the local cache before the next sync.
+    /// AC2: Service Worker caches this response. Includes a generatedAt field so the
+    /// client can show freshness, and exposes flagged status/description for local UX.
     /// </summary>
     [HttpGet("catalog-snapshot")]
     public IActionResult CatalogSnapshot()
@@ -86,4 +134,10 @@ public class OfflineSyncController : Controller
         var claim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return int.TryParse(claim, out int id) ? id : 0;
     }
+}
+
+/// <summary>Request body for coordinator conflict override.</summary>
+public class ConflictOverrideRequest
+{
+    public string? OverrideReason { get; set; }
 }

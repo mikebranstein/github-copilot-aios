@@ -6,10 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Team Equipment Tracker</title>
     <script type="importmap"></script>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0d6efd" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/EquipmentTracker.Web.styles.css" asp-append-version="true" />
     <style>
+        /* AC6: Offline banner — replaces dot indicator */
+        #offline-status-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10000;
+            background-color: #fd7e14;
+            color: #fff;
+            text-align: center;
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: opacity 0.3s ease;
+        }
+        #offline-status-banner.banner-visible {
+            display: block;
+        }
+        /* Push page body down so content is not hidden under banner */
+        body.offline-mode {
+            padding-top: 42px;
+        }
         .online-dot {
             display: inline-block;
             width: 10px;
@@ -29,6 +55,10 @@
     </style>
 </head>
 <body>
+    <!-- AC6: Offline banner — visible on ALL primary screens within 3s of connectivity change -->
+    <div id="offline-status-banner" role="alert" aria-live="assertive" aria-atomic="true">
+        📵 You are offline — transactions are queued and will sync automatically when connectivity returns.
+    </div>
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
@@ -123,7 +153,29 @@
         <script src="~/js/offline-queue.js" asp-append-version="true"></script>
         <script src="~/js/offline-sync.js" asp-append-version="true"></script>
         <script>
+            // ── AC1: Persistent Storage API ──────────────────────────────────────
+            // Request persistent storage on first load so Chrome for Android does
+            // not evict IndexedDB under low-memory pressure (Android Doze safe).
+            (async function requestPersistentStorage() {
+                if (navigator.storage && navigator.storage.persist) {
+                    const already = await navigator.storage.persisted();
+                    if (!already) {
+                        const granted = await navigator.storage.persist();
+                        console.info('[PWA] Persistent storage', granted ? 'granted ✅' : 'denied (quota eviction possible)');
+                    } else {
+                        console.info('[PWA] Persistent storage already granted ✅');
+                    }
+                }
+            })();
+
+            // ── Service Worker registration ───────────────────────────────────────
             if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => {
+                        console.info('[SW] Registered, scope:', reg.scope);
+                    })
+                    .catch(err => console.warn('[SW] Registration failed:', err));
+
                 navigator.serviceWorker.addEventListener('message', event => {
                     if (event.data?.type === 'TRIGGER_SYNC') {
                         window.OfflineSync?.triggerSync();
