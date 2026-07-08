@@ -32,6 +32,15 @@ public class ReservationTests
         return (service, notifySvc);
     }
 
+    private static (ReservationService Service, FakeReservationNotificationService NotifySvc, EquipmentService EquipmentSvc)
+        CreateServicesWithEquipment()
+    {
+        var equipmentSvc = new EquipmentService();
+        var notifySvc = new FakeReservationNotificationService();
+        var service = new ReservationService(equipmentSvc, notifySvc);
+        return (service, notifySvc, equipmentSvc);
+    }
+
     private static Project CreateTestProject(
         ReservationService service,
         string name = "Test Project",
@@ -157,9 +166,9 @@ public class ReservationTests
     [Fact]
     public void RS_AC2_GetCalendarReservations_FilterBySite_ReturnsOnlySitesMatch()
     {
-        var (service, _) = CreateServices();
+        var (service, _, equipmentSvc) = CreateServicesWithEquipment();
         var project = CreateTestProject(service, siteId: 1);
-        var items = GetEquipmentService().GetAllItems().ToList();
+        var items = equipmentSvc.GetAllItems().ToList();
         var today = DateOnly.FromDateTime(DateTime.Today);
 
         // Create reservations — items are seeded to different sites by ReservationService constructor
