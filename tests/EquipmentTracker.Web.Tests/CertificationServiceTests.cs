@@ -575,8 +575,7 @@ public class CertificationServiceTests
             DateTime.UtcNow.AddDays(15),   // expiring within 30 days
             "Admin");
 
-        using var logFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(b => b.AddConsole());
-        var logger = logFactory.CreateLogger<CertExpiryNotificationJob>();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<CertExpiryNotificationJob>.Instance;
         var job = new CertExpiryNotificationJob(svc, logger);
 
         // Should not throw — daily digest runs without error
@@ -589,8 +588,7 @@ public class CertificationServiceTests
     {
         var svc = CreateService();  // no records, no certs expiring
 
-        using var logFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(b => b.AddConsole());
-        var logger = logFactory.CreateLogger<CertExpiryNotificationJob>();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<CertExpiryNotificationJob>.Instance;
         var job = new CertExpiryNotificationJob(svc, logger);
 
         var exception = Record.Exception(() => job.RunDailyDigest());
