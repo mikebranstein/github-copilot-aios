@@ -64,7 +64,6 @@ public class ApprovalService : IApprovalService
 
             // Write immutable audit log entry (AC-6)
             AppendAuditEntry(request, AuditDecision.Approved, approverId: coordinatorId);
-
             approvedRequest = request;
         }
 
@@ -108,7 +107,6 @@ public class ApprovalService : IApprovalService
 
             // Write immutable audit log entry (AC-6)
             AppendAuditEntry(request, AuditDecision.Denied, approverId: coordinatorId, denialReason: reason);
-
             deniedRequest = request;
         }
 

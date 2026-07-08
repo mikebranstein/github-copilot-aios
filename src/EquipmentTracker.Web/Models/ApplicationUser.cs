@@ -40,4 +40,11 @@ public class ApplicationUser
         Role == UserRole.OperationsDirector ||
         Role == UserRole.CFO ||
         Role == UserRole.Admin;
+
+    // Added for Issue #118 — Real-Time Equipment Availability Dashboard
+    /// <summary>The site/job this field manager is primarily assigned to. Used as the default site filter on the availability dashboard.</summary>
+    public string? AssignedSite { get; set; }
+
+    /// <summary>Phone number for SMS fallback notifications (Notify Me feature). E.164 format preferred.</summary>
+    public string? PhoneNumber { get; set; }
 }

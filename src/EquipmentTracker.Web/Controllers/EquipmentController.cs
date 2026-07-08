@@ -124,6 +124,8 @@ public class EquipmentController : Controller
         return View(model);
     }
 
+    // POST /Equipment/Checkout
+    // Extended for Issue #117: restricted equipment triggers approval workflow (AC-2, AC-3)
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Checkout(CheckoutViewModel model)
@@ -248,7 +250,6 @@ public class EquipmentController : Controller
         TempData["SuccessMessage"] = certOutcome == CertValidationOutcome.Overridden
             ? $"'{model.EquipmentItemName}' checked out to {model.BorrowerName} with supervisor override by {model.OverrideSupervisorName}."
             : $"'{model.EquipmentItemName}' checked out to {model.BorrowerName}.";
-
         return RedirectToAction(nameof(Index));
     }
 

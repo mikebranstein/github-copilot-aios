@@ -42,6 +42,16 @@ builder.Services.AddSingleton<IUtilizationService, UtilizationService>();
 builder.Services.AddSingleton<IRentalCostService, RentalCostService>();
 builder.Services.AddSingleton<IBuyRentRecommendationService, BuyRentRecommendationService>();
 builder.Services.AddSingleton<ICfoReportService, CfoReportService>();
+
+// Availability Dashboard — Issue #118
+builder.Services.AddSingleton<ISoftHoldService, SoftHoldService>();
+builder.Services.AddSingleton<IAvailabilityDashboardService, AvailabilityDashboardService>();
+builder.Services.AddSingleton<IUserPreferencesService, UserPreferencesService>();
+builder.Services.AddSingleton<ISmsService, StubSmsService>();
+builder.Services.AddSingleton<INotifyMeService, NotifyMeService>();
+builder.Services.AddHostedService<SoftHoldExpiryJob>();
+
+// Cookie authentication with 7-day sliding session
 var sessionExpiryDays = builder.Configuration.GetValue<int>("Auth:SessionExpiryDays", 7);
 if (sessionExpiryDays <= 0) sessionExpiryDays = 7;
 
