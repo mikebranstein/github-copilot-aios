@@ -13,7 +13,12 @@ public class CheckoutViewModel
     [StringLength(100)]
     public string BorrowerName { get; set; } = string.Empty;
 
+    // ── Cert enforcement fields (Issue #120) ──────────────────────────────────
+
+    /// <summary>Set when checkout is blocked by cert validation. Shown in the view.</summary>
     public string? CertBlockMessage { get; set; }
+
+    /// <summary>True when the user is re-submitting with a supervisor override.</summary>
     public bool IsOverrideAttempt { get; set; }
 
     [StringLength(100)]

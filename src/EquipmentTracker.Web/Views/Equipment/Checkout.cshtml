@@ -42,6 +42,7 @@
                 <span asp-validation-for="ConfirmedSiteId" class="text-danger"></span>
             </div>
 
+            @* ── Cert block message & supervisor override (Issue #120) ─────────── *@
             @if (Model.CertBlockMessage != null)
             {
                 <div class="alert alert-danger mt-3" role="alert">

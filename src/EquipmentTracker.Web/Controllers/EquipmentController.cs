@@ -168,6 +168,7 @@ public class EquipmentController : Controller
         }
         else
         {
+            // Override path (AC2) — supervisor name is mandatory
             if (string.IsNullOrWhiteSpace(model.OverrideSupervisorName))
             {
                 ModelState.AddModelError(nameof(model.OverrideSupervisorName),
@@ -208,6 +209,7 @@ public class EquipmentController : Controller
 
             if (certOutcome == CertValidationOutcome.Overridden)
             {
+                // Determine which cert was required for the block message
                 var reqs = _certService.GetRequirementsForCategory(item.Category);
                 var firstCertType = reqs.Select(r => _certService.GetCertType(r.CertTypeId)?.Name)
                                         .FirstOrDefault() ?? "certification";
@@ -219,7 +221,6 @@ public class EquipmentController : Controller
                     model.OverrideReasonText ?? string.Empty,
                     model.BorrowerName,
                     firstCertType);
-
                 checkoutRecord.OverrideRecordId = overrideRecord.Id;
             }
 
