@@ -6,8 +6,10 @@ public class EquipmentService : IEquipmentService
 {
     private readonly List<EquipmentItem> _items = new();
     private readonly List<CheckoutRecord> _records = new();
+    private readonly List<DamageFlag> _damageFlags = new();
     private int _nextItemId = 1;
     private int _nextRecordId = 1;
+    private int _nextFlagId = 1;
 
     public EquipmentService()
     {
@@ -202,4 +204,73 @@ public class EquipmentService : IEquipmentService
         item.LastUpdatedAtUtc = DateTime.UtcNow;
         return true;
     }
+
+    // ── Damage Flag methods (Issue #121) ─────────────────────────────────────
+
+    /// <inheritdoc/>
+    public DamageFlag? FlagDamage(
+        int itemId,
+        string description,
+        int? reportedByUserId,
+        string deviceTransactionId,
+        DateTime deviceTimestamp)
+    {
+        var item = GetItem(itemId);
+        if (item is null)
+            return null;
+
+        var flag = new DamageFlag
+        {
+            Id = _nextFlagId++,
+            EquipmentItemId = itemId,
+            Description = description,
+            ReportedByUserId = reportedByUserId,
+            DeviceTransactionId = deviceTransactionId,
+            DeviceTimestamp = deviceTimestamp,
+            ServerReceivedAt = DateTime.UtcNow
+        };
+
+        _damageFlags.Add(flag);
+
+        // Mark the item as flagged — subsequent offline checkout attempts reflect this status.
+        item.IsFlagged = true;
+        item.FlagDescription = description;
+
+        return flag;
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<DamageFlag> GetDamageFlags(int itemId) =>
+        _damageFlags
+            .Where(f => f.EquipmentItemId == itemId)
+            .OrderByDescending(f => f.DeviceTimestamp)
+            .ToList()
+            .AsReadOnly();
+
+    /// <inheritdoc/>
+    public IReadOnlyList<DamageFlag> GetAllActiveDamageFlags() =>
+        _damageFlags
+            .Where(f => GetItem(f.EquipmentItemId)?.IsFlagged == true)
+            .OrderByDescending(f => f.DeviceTimestamp)
+            .ToList()
+            .AsReadOnly();
+
+    /// <inheritdoc/>
+    public bool ClearDamageFlag(int itemId)
+    {
+        var item = GetItem(itemId);
+        if (item is null || !item.IsFlagged)
+            return false;
+
+        item.IsFlagged = false;
+        item.FlagDescription = null;
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public DamageFlag? GetActiveDamageFlag(int itemId) =>
+        _damageFlags
+            .Where(f => f.EquipmentItemId == itemId)
+            .OrderByDescending(f => f.DeviceTimestamp)
+            .FirstOrDefault();
 }

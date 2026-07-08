@@ -48,6 +48,15 @@ public class OfflineSyncController : Controller
         return Ok(result);
     }
 
+    // ── GET /api/offline/catalog-snapshot ────────────────────────────────────
+
+    /// <summary>
+    /// Returns all equipment items as a JSON snapshot for offline catalog caching.
+    /// AC2: Service Worker caches this response. Includes a "generatedAt" field so
+    /// the client can show "As of [timestamp]" and warn if cache is >24 h old.
+    /// Issue #121: IsFlagged and FlagDescription included so mobile client can reflect
+    /// damage flag status in the local cache before the next sync.
+    /// </summary>
     [HttpGet("catalog-snapshot")]
     public IActionResult CatalogSnapshot()
     {
@@ -60,9 +69,12 @@ public class OfflineSyncController : Controller
                 Id = i.Id,
                 Name = i.Name,
                 Category = i.Category,
-                Status = i.IsAvailable
-                    ? EquipmentTracker.Web.ViewModels.EquipmentStatus.Available
-                    : EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut
+                Status = i.IsFlagged
+                    ? EquipmentTracker.Web.ViewModels.EquipmentStatus.Flagged
+                    : (i.IsAvailable
+                        ? EquipmentTracker.Web.ViewModels.EquipmentStatus.Available
+                        : EquipmentTracker.Web.ViewModels.EquipmentStatus.CheckedOut),
+                FlagDescription = i.IsFlagged ? i.FlagDescription : null
             }).ToList()
         };
 

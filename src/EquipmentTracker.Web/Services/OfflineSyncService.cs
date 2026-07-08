@@ -98,9 +98,10 @@ public class OfflineSyncService : IOfflineSyncService
 
         return tx.Type?.ToLowerInvariant() switch
         {
-            "checkout" => ProcessCheckout(tx),
-            "return"   => ProcessReturn(tx),
-            _          => new SyncResult
+            "checkout"     => ProcessCheckout(tx),
+            "return"       => ProcessReturn(tx),
+            "damage_flag"  => ProcessDamageFlag(tx),
+            _              => new SyncResult
             {
                 DeviceTransactionId = tx.DeviceTransactionId,
                 Status = "error",
@@ -150,7 +151,9 @@ public class OfflineSyncService : IOfflineSyncService
                 {
                     DeviceTransactionId = tx.DeviceTransactionId,
                     Status = "conflict",
-                    ConflictDetails = conflictMsg
+                    ConflictDetails = conflictMsg,
+                    // AC7: Plain-language outcome notification — no technical dialog, no silent failure.
+                    PlainLanguageMessage = $"This item was checked out by someone else — your action was not applied."
                 };
             }
 
@@ -185,12 +188,16 @@ public class OfflineSyncService : IOfflineSyncService
             // Issue #114: propagate BatchTransactionId from offline bulk transaction
             if (!string.IsNullOrEmpty(tx.BatchTransactionId))
                 newRecord.BatchTransactionId = tx.BatchTransactionId;
+
+            // Issue #121 OSHA dual-timestamp: server-side received timestamp.
+            newRecord.ServerReceivedAt = DateTime.UtcNow;
         }
 
         return new SyncResult
         {
             DeviceTransactionId = tx.DeviceTransactionId,
-            Status = "success"
+            Status = "success",
+            ServerReceivedAt = DateTime.UtcNow
         };
     }
 
@@ -236,7 +243,60 @@ public class OfflineSyncService : IOfflineSyncService
         return new SyncResult
         {
             DeviceTransactionId = tx.DeviceTransactionId,
-            Status = "success"
+            Status = "success",
+            ServerReceivedAt = DateTime.UtcNow
+        };
+    }
+
+    private SyncResult ProcessDamageFlag(OfflineSyncTransaction tx)
+    {
+        // Damage flag: server-authoritative, no checkout-style conflict.
+        // Applied immediately and flags the item in the equipment service.
+        var item = _equipmentService.GetItem(tx.ItemId);
+        if (item is null)
+        {
+            return new SyncResult
+            {
+                DeviceTransactionId = tx.DeviceTransactionId,
+                Status = "error",
+                ConflictDetails = $"Equipment item {tx.ItemId} not found."
+            };
+        }
+
+        string description = tx.Description ?? "(no description provided)";
+
+        var flag = _equipmentService.FlagDamage(
+            tx.ItemId,
+            description,
+            tx.BorrowerUserId,
+            tx.DeviceTransactionId,
+            tx.OfflineTimestamp);
+
+        if (flag is null)
+        {
+            return new SyncResult
+            {
+                DeviceTransactionId = tx.DeviceTransactionId,
+                Status = "error",
+                ConflictDetails = $"Failed to create damage flag for item {tx.ItemId}."
+            };
+        }
+
+        // Notify coordinators of the damage flag.
+        var coordinators = _userService.GetCoordinators();
+        string notifMsg =
+            $"Damage flag submitted for item '{item.Name}' (ID {item.Id}) " +
+            $"by user {tx.BorrowerUserId}. Description: {description}. " +
+            $"Device timestamp: {tx.OfflineTimestamp:O}. Server received: {flag.ServerReceivedAt:O}.";
+
+        foreach (var coord in coordinators)
+            _notificationService.CreateNotification(coord.Id, 0, notifMsg);
+
+        return new SyncResult
+        {
+            DeviceTransactionId = tx.DeviceTransactionId,
+            Status = "success",
+            ServerReceivedAt = flag.ServerReceivedAt
         };
     }
 }

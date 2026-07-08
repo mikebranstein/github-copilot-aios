@@ -54,4 +54,33 @@ public interface IEquipmentService
     IReadOnlyList<EquipmentItem> GetItemsByStatus(EquipmentStatus status);
     bool UpdateItemSite(int itemId, int? siteId);
     bool UpdateItemStatus(int itemId, EquipmentStatus status);
+
+    // Added for Issue #121 — Offline-First Mobile App for Field Workers
+
+    /// <summary>
+    /// Flags an equipment item as damaged/conditioned. Sets IsFlagged = true on the item.
+    /// Returns the created DamageFlag, or null if the item does not exist.
+    /// </summary>
+    DamageFlag? FlagDamage(int itemId, string description, int? reportedByUserId, string deviceTransactionId, DateTime deviceTimestamp);
+
+    /// <summary>
+    /// Returns all damage flags for the given equipment item, newest first.
+    /// </summary>
+    IReadOnlyList<DamageFlag> GetDamageFlags(int itemId);
+
+    /// <summary>
+    /// Returns all active (unresolved) damage flags across all items.
+    /// </summary>
+    IReadOnlyList<DamageFlag> GetAllActiveDamageFlags();
+
+    /// <summary>
+    /// Clears the damage flag on the given item (marks it as resolved).
+    /// Returns false if the item does not exist or is not flagged.
+    /// </summary>
+    bool ClearDamageFlag(int itemId);
+
+    /// <summary>
+    /// Returns the active damage flag (first unresolved) for an item, or null if none.
+    /// </summary>
+    DamageFlag? GetActiveDamageFlag(int itemId);
 }
