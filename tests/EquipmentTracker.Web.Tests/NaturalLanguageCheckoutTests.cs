@@ -371,6 +371,301 @@ public class NaturalLanguageCheckoutTests
         Assert.Equal("Input", view.ViewName);
     }
 
+    // ── NlCheckoutController — additional Parse branch coverage ───────────
+
+    /// <summary>
+    /// AC5: Empty utterance at controller level → Input view with guidance message.
+    /// Covers the null/whitespace guard branch in Parse before any service call.
+    /// </summary>
+    [Fact]
+    public async Task NlController_Parse_EmptyUtterance_ShowsInputWithGuidanceMessage()
+    {
+        var controller = BuildController(new EquipmentService());
+
+        var result = await controller.Parse("   ");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Input", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutInputViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("Please enter", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// AC5 / TS8: OperationCanceledException from NL service → controller catches it and
+    /// shows "temporarily unavailable" message with fallback link.
+    /// </summary>
+    [Fact]
+    public async Task NlController_Parse_OperationCanceled_ShowsTimeoutError()
+    {
+        var controller = BuildController(new EquipmentService(), new CancelingNlService());
+
+        var result = await controller.Parse("check out drill #4");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Input", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutInputViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("temporarily unavailable", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        // Utterance is preserved so user doesn't lose their text
+        Assert.Equal("check out drill #4", vm.Utterance);
+    }
+
+    /// <summary>
+    /// AC5: LowConfidence status → Input view with guidance message.
+    /// </summary>
+    [Fact]
+    public async Task NlController_Parse_LowConfidence_ShowsInputWithError()
+    {
+        var controller = BuildController(new EquipmentService(), new StubNlService(new NlParseResult
+        {
+            Status = NlParseStatus.LowConfidence,
+            Confidence = 0.3,
+            ErrorMessage = "I didn't understand that — try 'Check out [item] to me until [date]'",
+            OriginalUtterance = "blorp flooble"
+        }));
+
+        var result = await controller.Parse("blorp flooble");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Input", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutInputViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("didn't understand", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Defensive: An unknown future NlParseStatus value → Input view with generic fallback.
+    /// Covers the default (_) branch of the switch expression.
+    /// </summary>
+    [Fact]
+    public async Task NlController_Parse_DefaultStatus_ShowsInputWithFallbackError()
+    {
+        var controller = BuildController(new EquipmentService(), new StubNlService(new NlParseResult
+        {
+            Status = (NlParseStatus)99,   // unmapped future value
+            Confidence = 0.0,
+            OriginalUtterance = "check out drill"
+        }));
+
+        var result = await controller.Parse("check out drill");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Input", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutInputViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("Unexpected error", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── NlCheckoutController — additional ConfirmPost branch coverage ──────
+
+    /// <summary>
+    /// ConfirmPost: item not found → 404 NotFound result.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_ItemNotFound_ReturnsNotFound()
+    {
+        var equipSvc = new StubEquipmentService(item: null);
+        var controller = BuildControllerWithStub(equipSvc);
+
+        var result = await controller.ConfirmPost(
+            itemId: 9999, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "test");
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    /// <summary>
+    /// ConfirmPost: item not available + idempotent checkout → redirects to Success with a
+    /// "duplicate request detected" message rather than showing a conflict error.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_IdempotentCheckout_ReturnsSuccessRedirect()
+    {
+        var item = new EquipmentItem { Id = 10, Name = "Drill #4", IsAvailable = false };
+        var equipSvc = new StubEquipmentService(item: item, idempotentResult: true);
+        var controller = BuildControllerWithStub(equipSvc);
+
+        var result = await controller.ConfirmPost(
+            itemId: 10, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "check out drill #4");
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Success", redirect.ActionName);
+        Assert.Equal("MobileCheckout", redirect.ControllerName);
+    }
+
+    /// <summary>
+    /// ConfirmPost: item not available (non-idempotent) and an active checkout record exists →
+    /// Confirm view shown with a message identifying the current holder. HTTP 409.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_ItemUnavailable_WithActiveRecord_ShowsConflictWithHolder()
+    {
+        var item = new EquipmentItem { Id = 20, Name = "Saw #1", IsAvailable = false };
+        var activeRecord = new CheckoutRecord
+        {
+            Id = 1, EquipmentItemId = 20, BorrowerName = "Bob", BorrowerUserId = 2,
+            CheckedOutAtUtc = DateTime.UtcNow.AddHours(-1)
+        };
+        var equipSvc = new StubEquipmentService(item: item, activeRecord: activeRecord,
+            idempotentResult: false);
+        var controller = BuildControllerWithStub(equipSvc);
+
+        var result = await controller.ConfirmPost(
+            itemId: 20, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "check out saw #1");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Confirm", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutConfirmViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("Bob", vm.ErrorMessage);
+        Assert.Equal(409, controller.Response.StatusCode);
+    }
+
+    /// <summary>
+    /// ConfirmPost: item not available (non-idempotent) and NO active checkout record →
+    /// Confirm view shown with generic "unavailable" message. HTTP 409.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_ItemUnavailable_NoActiveRecord_ShowsGenericConflict()
+    {
+        var item = new EquipmentItem { Id = 30, Name = "Ladder 2", IsAvailable = false };
+        var equipSvc = new StubEquipmentService(item: item, activeRecord: null,
+            idempotentResult: false);
+        var controller = BuildControllerWithStub(equipSvc);
+
+        var result = await controller.ConfirmPost(
+            itemId: 30, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "check out ladder 2");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Confirm", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutConfirmViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("unavailable", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(409, controller.Response.StatusCode);
+    }
+
+    /// <summary>
+    /// ConfirmPost: item is available but Checkout service returns false (defensive race-condition
+    /// path) → Confirm view shown with retry error. HTTP 409.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_CheckoutFails_ShowsRetryError()
+    {
+        var item = new EquipmentItem { Id = 40, Name = "Projector", IsAvailable = true };
+        var equipSvc = new StubEquipmentService(item: item, checkoutResult: false);
+        var controller = BuildControllerWithStub(equipSvc);
+
+        var result = await controller.ConfirmPost(
+            itemId: 40, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "check out projector");
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("Confirm", view.ViewName);
+        var vm = Assert.IsType<NlCheckoutConfirmViewModel>(view.Model);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Contains("Checkout failed", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(409, controller.Response.StatusCode);
+    }
+
+    /// <summary>
+    /// ConfirmPost: push notification failure → exception is logged and swallowed; checkout
+    /// still succeeds and user is redirected to Pending. Covers the try/catch in coordinator loop.
+    /// </summary>
+    [Fact]
+    public async Task NlController_ConfirmPost_PushNotificationFails_CheckoutStillSucceeds()
+    {
+        var equipSvc = new EquipmentService();
+        var item = equipSvc.CreateItem("Camera Kit", "A/V");
+
+        // Build a UserService with a coordinator that has push notifications enabled
+        var userSvc = new UserService();
+        var coordinator = userSvc.GetCoordinators().FirstOrDefault();
+
+        // Use a push service that throws on SendAsync
+        var throwingPush = new ThrowingPushNotificationService();
+        var notifSvc = new CoordinatorNotificationService();
+        var approvalSvc = new ApprovalService(equipSvc, userSvc, throwingPush);
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<NlCheckoutController>.Instance;
+
+        var controller = new NlCheckoutController(
+            new NaturalLanguageCheckoutService(equipSvc,
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<NaturalLanguageCheckoutService>.Instance),
+            equipSvc, userSvc, notifSvc, throwingPush, approvalSvc, logger);
+
+        var claims = new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "1"),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "Alice")
+        };
+        var identity = new System.Security.Claims.ClaimsIdentity(claims, "test");
+        var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { User = principal };
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
+
+        // Act — should not throw even though push service throws
+        var result = await controller.ConfirmPost(
+            itemId: item.Id, assigneeId: 1, assigneeName: "Alice",
+            dueDateIso: null, dueDateDisplay: null, utterance: "check out camera kit");
+
+        // Assert — checkout still succeeds, redirect to Pending
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Pending", redirect.ActionName);
+        Assert.Equal("MobileCheckout", redirect.ControllerName);
+
+        // Verify checkout was actually recorded
+        var record = equipSvc.GetActiveCheckoutRecord(item.Id);
+        Assert.NotNull(record);
+    }
+
+    // ── AC1 and AC6 — deferred acceptance criteria (Technical Spike #148) ──
+
+    /// <summary>
+    /// AC1: End-to-end latency from NL text submission to confirmation prompt displayed must be
+    /// under 5 seconds on a 4G mobile connection.
+    ///
+    /// DEFERRED: This acceptance criterion requires a running LLM backend and real network
+    /// conditions to measure. It is out of scope for unit tests and will be validated in
+    /// Technical Spike #148 (Offline-First LLM Integration Spike) where a latency harness
+    /// can be executed against a real or stubbed LLM endpoint.
+    ///
+    /// See issue #148 and design decision on issue #149 for context.
+    /// </summary>
+    [Fact(Skip = "AC1 latency test deferred to Technical Spike #148 — requires real LLM endpoint and network harness")]
+    public void AC1_EndToEnd_NlToConfirmationUnder5s_DeferredToTechnicalSpike148()
+    {
+        // Placeholder: When Technical Spike #148 delivers an integration test harness,
+        // this test should:
+        //   1. POST an utterance to /mobile/checkout/nl/parse
+        //   2. Measure wall-clock time from request to response (including LLM round-trip)
+        //   3. Assert total time < 5000ms
+        throw new NotImplementedException("Implement in Technical Spike #148");
+    }
+
+    /// <summary>
+    /// AC6: Voice input (speech-to-text) integration is explicitly out of scope for Phase 1.
+    /// Phase 1 supports text-only input on mobile.
+    ///
+    /// DEFERRED: Voice / speech-to-text is a Phase 2 feature. There is no implementation to
+    /// test in this issue. A skeleton test is retained here to document the deferral explicitly
+    /// and will be fleshed out when Phase 2 is implemented.
+    ///
+    /// See non-goals in issue #149 and design decision comment for context.
+    /// </summary>
+    [Fact(Skip = "AC6 voice input is out of scope for Phase 1 — deferred to Phase 2 / Technical Spike #148")]
+    public void AC6_VoiceInput_SpeechToText_NotImplemented_DeferredToPhase2()
+    {
+        // Placeholder: Phase 2 implementation should:
+        //   1. Accept audio stream / Web Speech API output as utterance input
+        //   2. Convert to text and feed into the same NL parse pipeline
+        //   3. Assert recognition accuracy meets AC6 threshold (≥97% on test phrases)
+        throw new NotImplementedException("Implement in Phase 2 / Technical Spike #148");
+    }
+
     // ── NlParseResult model tests ──────────────────────────────────────────
 
     /// <summary>
@@ -408,11 +703,13 @@ public class NaturalLanguageCheckoutTests
     }
 
     private static NlCheckoutController BuildController(
-        EquipmentService equipSvc,
+        IEquipmentService equipSvc,
         INaturalLanguageCheckoutService? nlService = null)
     {
-        nlService ??= new NaturalLanguageCheckoutService(
-            equipSvc, NullLogger<NaturalLanguageCheckoutService>.Instance);
+        if (nlService is null && equipSvc is EquipmentService concreteEquipSvc)
+            nlService = new NaturalLanguageCheckoutService(
+                concreteEquipSvc, NullLogger<NaturalLanguageCheckoutService>.Instance);
+        nlService ??= new StubNlService(new NlParseResult { Status = NlParseStatus.ItemNotFound });
 
         var userSvc = new UserService();
         var notifSvc = new CoordinatorNotificationService();
@@ -433,6 +730,38 @@ public class NaturalLanguageCheckoutTests
         var principal = new ClaimsPrincipal(identity);
         var httpContext = new DefaultHttpContext { User = principal };
 
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
+
+        return controller;
+    }
+
+    /// <summary>
+    /// Builds a controller wired to a stub IEquipmentService (for testing branches that
+    /// require controlled behavior like checkout-failure or idempotency).
+    /// </summary>
+    private static NlCheckoutController BuildControllerWithStub(
+        IEquipmentService equipSvc,
+        INaturalLanguageCheckoutService? nlService = null)
+    {
+        nlService ??= new StubNlService(new NlParseResult { Status = NlParseStatus.ItemNotFound });
+        var userSvc = new UserService();
+        var notifSvc = new CoordinatorNotificationService();
+        var pushSvc = new StubPushNotificationService();
+        var approvalSvc = new ApprovalService(equipSvc, userSvc, pushSvc);
+        var logger = NullLogger<NlCheckoutController>.Instance;
+
+        var controller = new NlCheckoutController(
+            nlService, equipSvc, userSvc, notifSvc, pushSvc, approvalSvc, logger);
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "1"),
+            new Claim(ClaimTypes.Name, "Alice")
+        };
+        var identity = new ClaimsIdentity(claims, "test");
+        var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { User = principal };
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         controller.TempData = new TempDataDictionary(httpContext, new NullTempDataProvider());
 
@@ -466,5 +795,81 @@ public class NaturalLanguageCheckoutTests
         public IDictionary<string, object?> LoadTempData(HttpContext context)
             => new Dictionary<string, object?>();
         public void SaveTempData(HttpContext context, IDictionary<string, object?> values) { }
+    }
+
+    /// <summary>
+    /// NL service stub that always throws OperationCanceledException, simulating an LLM timeout
+    /// that propagates through the CancellationTokenSource in the controller.
+    /// </summary>
+    private sealed class CancelingNlService : INaturalLanguageCheckoutService
+    {
+        public Task<NlParseResult> ParseAsync(string utterance, int userId, string userName)
+            => throw new OperationCanceledException("Simulated LLM timeout in test");
+    }
+
+    /// <summary>
+    /// Push notification service stub that always throws, simulating a transient push failure.
+    /// Used to verify the controller's try/catch swallows the exception and continues.
+    /// </summary>
+    private sealed class ThrowingPushNotificationService : IPushNotificationService
+    {
+        public Task SendAsync(ApplicationUser coordinator, string title, string body)
+            => throw new InvalidOperationException("Simulated push failure in test");
+        public Task<bool> SubscribeAsync(ApplicationUser coordinator, string endpoint,
+            string p256dh, string auth) => Task.FromResult(true);
+        public Task<bool> UnsubscribeAsync(ApplicationUser coordinator) => Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Minimal stub IEquipmentService for testing controller branches that require controlled
+    /// behavior (e.g., Checkout returning false, item unavailable, idempotent checkout).
+    /// Only the methods called by NlCheckoutController are implemented; all others throw.
+    /// </summary>
+    private sealed class StubEquipmentService : IEquipmentService
+    {
+        private readonly EquipmentItem? _item;
+        private readonly CheckoutRecord? _activeRecord;
+        private readonly bool _checkoutResult;
+        private readonly bool _idempotentResult;
+
+        public StubEquipmentService(
+            EquipmentItem? item = null,
+            CheckoutRecord? activeRecord = null,
+            bool checkoutResult = true,
+            bool idempotentResult = false)
+        {
+            _item = item;
+            _activeRecord = activeRecord;
+            _checkoutResult = checkoutResult;
+            _idempotentResult = idempotentResult;
+        }
+
+        public EquipmentItem? GetItem(int id) => _item;
+        public IReadOnlyList<EquipmentItem> GetAllItems()
+            => _item is not null ? (IReadOnlyList<EquipmentItem>)[_item] : [];
+        public EquipmentItem CreateItem(string name, string category)
+            => throw new NotSupportedException("Not needed in stub");
+        public bool Checkout(int itemId, string borrowerName, int? borrowerUserId = null,
+            string? conditionNote = null, int? bulkCheckoutInitiatorId = null, int? newSiteId = null)
+            => _checkoutResult;
+        public bool Return(int itemId, string? returnConditionNote = null) => false;
+        public string? GetCurrentHolder(int itemId) => null;
+        public IReadOnlyList<CheckoutRecord> GetCheckoutHistory(int itemId) => [];
+        public CheckoutRecord? GetActiveCheckoutRecord(int itemId) => _activeRecord;
+        public IReadOnlyList<CheckoutHistoryEntry> GetAllCheckoutHistory() => [];
+        public IReadOnlyList<CheckoutHistoryEntry> GetCheckoutHistoryByUser(int userId, int limit = 30) => [];
+        public CheckoutRecord? GetCheckoutRecordById(int recordId) => null;
+        public IReadOnlyList<CheckoutRecord> GetAllRawCheckoutRecords() => [];
+        public bool IsIdempotentCheckout(int itemId, int borrowerUserId) => _idempotentResult;
+        public IReadOnlyList<EquipmentItem> GetItemsBySite(int? siteId) => [];
+        public IReadOnlyList<EquipmentItem> GetItemsByStatus(EquipmentTracker.Web.Models.EquipmentStatus status) => [];
+        public bool UpdateItemSite(int itemId, int? siteId) => false;
+        public bool UpdateItemStatus(int itemId, EquipmentTracker.Web.Models.EquipmentStatus status) => false;
+        public DamageFlag? FlagDamage(int itemId, string description, int? reportedByUserId,
+            string deviceTransactionId, DateTime deviceTimestamp) => null;
+        public IReadOnlyList<DamageFlag> GetDamageFlags(int itemId) => [];
+        public IReadOnlyList<DamageFlag> GetAllActiveDamageFlags() => [];
+        public bool ClearDamageFlag(int itemId) => false;
+        public DamageFlag? GetActiveDamageFlag(int itemId) => null;
     }
 }

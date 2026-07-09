@@ -71,7 +71,7 @@ public static class AvailabilityTestFactory
             Id = id,
             Name = name,
             Category = category,
-            SiteName = siteName,
+            SiteName = siteName ?? string.Empty,
             IsAvailable = isAvailable,
             LifecycleStatus = lifecycleStatus
         };
@@ -170,7 +170,7 @@ public class TS1_CompoundAvailabilityTests
     public void TS1d_NoSiteAssigned_ShowsLocationUnknownStatus()
     {
         // Given: item has no site assignment
-        var (dashSvc, _, equipSvc) = CreateServices(item => item.SiteName = null);
+        var (dashSvc, _, equipSvc) = CreateServices(item => item.SiteName = null!);
         var item = equipSvc.GetAllItems()[0];
 
         // When
