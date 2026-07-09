@@ -7,7 +7,7 @@
 Implement approved design scope by creating a pull request with traceable changes, without re-deciding architecture. Autonomous: branch creation, implementation, commit, push, and PR open.
 
 ## Required Inputs
-- work_item_id
+- issue_id
 - approved_design_summary
 - approved_interfaces_impacted
 - approved_data_model_impact
@@ -21,8 +21,8 @@ Return valid JSON only:
 
 ```json
 {
-  "decision": "COMPLETE|PARTIAL|BLOCKED",
-  "pr_url": "string",
+  "decision": "COMPLETE|PARTIAL|BLOCKED|BLOCKED_REQUIRES_CLARIFICATION",
+  "pr_url": "string (or null if fixing failures)",
   "branch_name": "string",
   "changes_summary": "string",
   "files_changed": ["string"],
@@ -30,9 +30,11 @@ Return valid JSON only:
   "acceptance_criteria_covered": ["string"],
   "remaining_work": ["string"],
   "blocker_reason": "string|null",
+  "test_failure_analysis": "[if fixing failures: which tests failed, root cause analysis]",
+  "reason": "[if BLOCKED_REQUIRES_CLARIFICATION: which test failure suggests criteria ambiguity]",
   "risks": ["string"],
   "design_dependencies_used": ["string"],
-  "next_state": "In Build|In Verification|Blocked"
+  "next_state": "In Build|In Verification|Blocked|Awaiting Requirements Clarification"
 }
 ```
 
@@ -56,6 +58,7 @@ Return valid JSON only:
 - Use `COMPLETE` only when the approved scope is implemented, all UI tests are created and passing, PR is created, and ready for verification.
 - Use `PARTIAL` when implementation made progress but more build work or tests are still required.
 - Use `BLOCKED` when implementation cannot proceed without escalation (e.g., missing test tooling, design ambiguity).
+- Use `BLOCKED_REQUIRES_CLARIFICATION` when fixing QA test failures reveals that acceptance criteria are ambiguous (not a code bug). Router will send back to Design for clarification.
 
 ## Escalation Rule
 Escalate when required implementation conflicts with approved design, non-goals, or branch policy.
@@ -64,4 +67,5 @@ Escalate when required implementation conflicts with approved design, non-goals,
 - `COMPLETE` maps to `next_state = In Verification`.
 - `PARTIAL` maps to `next_state = In Build`.
 - `BLOCKED` maps to `next_state = Blocked`.
+- `BLOCKED_REQUIRES_CLARIFICATION` maps to `next_state = Awaiting Requirements Clarification` (router sends to Design).
 - Verification starts only when decision is COMPLETE.

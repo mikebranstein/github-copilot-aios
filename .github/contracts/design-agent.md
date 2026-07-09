@@ -7,12 +7,43 @@
 Transform an approved work item into an actionable technical design that defines solution shape before build begins.
 
 ## Required Inputs
-- work_item_id
+- issue_id
 - ess_draft
 - acceptance_criteria
 - non_goals
-- risk_level
+- risk_level (must use concrete definitions below)
 - current_architecture_context
+
+## Risk Level Definitions (Mandatory)
+
+Design must use these concrete definitions to mark risk level. Ambiguous or over-marked risks create policy bottlenecks.
+
+**LOW RISK — Mark as "Low" if:**
+- Bug fixes or UX improvements only
+- Single file or isolated module changed
+- No API, schema, or auth changes
+- No new external dependencies
+- Changes to existing, proven patterns
+- Examples: Fix typo, improve button style, add validation to form field
+
+**MEDIUM RISK — Mark as "Medium" if:**
+- New feature in existing subsystem
+- 2-5 files changed across related modules
+- API changes that are backward-compatible
+- New database queries (but no schema changes)
+- New external dependency or API integration (but well-scoped)
+- Touches payment, notifications, reporting, or auth indirectly (but not core auth logic)
+- Examples: Add new report type, create notification channel, expand search filters
+
+**HIGH RISK — Mark as "High" ONLY if at least ONE of these applies:**
+- Breaking API changes (existing endpoints removed or signature changed)
+- Database schema changes (new required columns, table restructuring)
+- Core authentication or authorization logic changes
+- PII/payment processing changes
+- Multi-team coordination required (affects other services)
+- Infrastructure or deployment changes
+- Encryption or audit logging changes
+- Examples: Refactor auth system, add payment gateway, restructure user schema, multi-service coordination
 
 ## Output Schema (JSON only)
 Return valid JSON only:
@@ -46,6 +77,17 @@ When decision is REVISE, `clarifications_needed` should explicitly list what asp
 
 ## Escalation Rule
 Escalate when design requires breaking API changes, cross-team dependencies, or architectural changes that cannot be justified from the current issue context.
+
+## Policy Review Trigger Rules
+
+Apply `policy-review-required` when ANY of the following are true:
+- Risk level is High
+- Breaking changes to public APIs, data models, or authentication
+- PII/compliance/security implications (data access changes, retention, encryption)
+- Impact affects multiple critical subsystems (3+ areas)
+- Database schema changes (migrations, new tables, structural changes)
+- New external dependencies or third-party integrations
+- Changes to existing critical workflows (checkout/return, payments, auth)
 
 ## Gate Rule
 - `PASS` maps to `next_state = In Build`. Design-approved label applied. Build starts.
