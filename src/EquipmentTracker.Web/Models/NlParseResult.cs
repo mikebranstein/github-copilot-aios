@@ -68,6 +68,13 @@ public static class NlParseConstants
     /// <summary>Minimum confidence score to treat a parse as usable (AC3: ≥97% accuracy target).</summary>
     public const double MinConfidence = 0.70;
 
-    /// <summary>LLM call timeout in seconds (AC1: end-to-end <5 s on 4G).</summary>
+    /// <summary>LLM call timeout in seconds (AC1: end-to-end &lt;5 s on 4G).</summary>
     public const int LlmTimeoutSeconds = 3;
+
+    /// <summary>
+    /// Maximum allowed LLM cost per checkout transaction in USD (AC6: ≤$0.003 in production).
+    /// The Phase 1 stub has zero LLM cost; this constant is the guardrail that any future
+    /// production LLM provider integration (from Technical Spike #148) must satisfy.
+    /// </summary>
+    public const decimal MaxCostPerTransactionUsd = 0.003m;
 }
