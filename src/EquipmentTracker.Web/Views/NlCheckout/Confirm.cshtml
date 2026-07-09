@@ -1,0 +1,80 @@
+@model EquipmentTracker.Web.ViewModels.NlCheckoutConfirmViewModel
+@{
+    ViewData["Title"] = "Confirm Checkout";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-1">✅ Confirm Checkout</h4>
+    <p class="text-muted small mb-3">Review the details below, then tap Confirm.</p>
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            <strong>⚠️</strong> @Model.ErrorMessage
+            <hr class="my-1" />
+            <a asp-controller="MobileCheckout" asp-action="Scan" class="btn btn-sm btn-outline-secondary mt-1">
+                Use Standard Checkout
+            </a>
+        </div>
+    }
+
+    @if (string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <!-- AC2: All extracted entities displayed before any transaction is committed -->
+        <div class="card mb-3 border-primary">
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-5 text-muted">Item</dt>
+                    <dd class="col-7 fw-semibold">@Model.Item.Name</dd>
+
+                    <dt class="col-5 text-muted">Category</dt>
+                    <dd class="col-7">@Model.Item.Category</dd>
+
+                    <dt class="col-5 text-muted">Assigned to</dt>
+                    <dd class="col-7 fw-semibold">@Model.AssigneeName</dd>
+
+                    @if (Model.DueDate.HasValue)
+                    {
+                        <dt class="col-5 text-muted">Due back</dt>
+                        <dd class="col-7 fw-semibold text-primary">@(Model.DueDateDisplay ?? Model.DueDate.Value.ToString("dddd, MMMM d"))</dd>
+                    }
+                    else
+                    {
+                        <dt class="col-5 text-muted">Due back</dt>
+                        <dd class="col-7 text-muted"><em>Not specified</em></dd>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        @if (!Model.Item.IsAvailable)
+        {
+            <div class="alert alert-warning" role="alert">
+                ⚠️ This item is currently checked out. It may have just become unavailable.
+            </div>
+        }
+
+        <form asp-action="ConfirmPost" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="itemId" value="@Model.Item.Id" />
+            <input type="hidden" name="assigneeId" value="@Model.AssigneeId" />
+            <input type="hidden" name="assigneeName" value="@Model.AssigneeName" />
+            <input type="hidden" name="dueDateIso" value="@(Model.DueDate?.ToString("O"))" />
+            <input type="hidden" name="dueDateDisplay" value="@Model.DueDateDisplay" />
+            <input type="hidden" name="utterance" value="@Model.OriginalUtterance" />
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success btn-lg" @(Model.Item.IsAvailable ? "" : "disabled")>
+                    ✅ Confirm Checkout
+                </button>
+                <a asp-action="Index" class="btn btn-outline-secondary">
+                    ← Edit Request
+                </a>
+                <a asp-controller="MobileCheckout" asp-action="Scan" class="btn btn-outline-secondary">
+                    Use Standard Checkout
+                </a>
+            </div>
+        </form>
+    }
+</div>

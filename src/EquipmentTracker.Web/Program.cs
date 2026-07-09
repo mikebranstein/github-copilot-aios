@@ -54,6 +54,9 @@ builder.Services.AddHostedService<SoftHoldExpiryJob>();
 // Smart Maintenance Scheduling — Issue #119 (Phase 1, rule-based only, no ML)
 builder.Services.AddSingleton<IMaintenanceService, MaintenanceService>();
 
+// NL Checkout — Issue #149 (Phase 1: text-based NL interface; LLM provider TBD from spike #148)
+builder.Services.AddSingleton<INaturalLanguageCheckoutService, NaturalLanguageCheckoutService>();
+
 // Cookie authentication with 7-day sliding session
 var sessionExpiryDays = builder.Configuration.GetValue<int>("Auth:SessionExpiryDays", 7);
 if (sessionExpiryDays <= 0) sessionExpiryDays = 7;
