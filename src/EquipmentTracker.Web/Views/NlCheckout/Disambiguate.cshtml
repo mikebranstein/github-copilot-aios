@@ -1,0 +1,61 @@
+@model EquipmentTracker.Web.ViewModels.NlCheckoutDisambiguateViewModel
+@{
+    ViewData["Title"] = "Select Equipment";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-2 py-3">
+    <h4 class="mb-1">🔍 Multiple Items Found</h4>
+    <p class="text-muted small mb-3">
+        Your request matched several items. Tap the one you want to check out.
+    </p>
+
+    <div class="alert alert-info small py-2" role="alert">
+        <strong>Your request:</strong> <em>@Model.Utterance</em>
+    </div>
+
+    <form asp-action="Disambiguate" method="post" id="disambig-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="utterance" value="@Model.Utterance" />
+        <input type="hidden" name="assigneeId" value="@Model.AssigneeId" />
+        <input type="hidden" name="assigneeName" value="@Model.AssigneeName" />
+        <input type="hidden" name="dueDateIso" value="@(Model.DueDate?.ToString("O"))" />
+        <input type="hidden" name="dueDateDisplay" value="@Model.DueDateDisplay" />
+        <input type="hidden" id="selected-item-id" name="selectedItemId" value="0" />
+
+        <div class="list-group mb-3" role="list">
+            @foreach (var item in Model.Candidates)
+            {
+                var badge = item.IsAvailable
+                    ? "<span class=\"badge bg-success\">Available</span>"
+                    : "<span class=\"badge bg-warning text-dark\">Checked Out</span>";
+                <button type="button"
+                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        style="min-height:56px;"
+                        onclick="selectItem(@item.Id)">
+                    <span>
+                        <strong>@item.Name</strong><br />
+                        <small class="text-muted">@item.Category</small>
+                    </span>
+                    @Html.Raw(badge)
+                </button>
+            }
+        </div>
+
+        <a asp-action="Index" class="btn btn-outline-secondary w-100 mb-2">
+            ← Edit My Request
+        </a>
+        <a asp-controller="MobileCheckout" asp-action="Scan" class="btn btn-outline-secondary w-100">
+            Use Standard Checkout Instead
+        </a>
+    </form>
+</div>
+
+@section Scripts {
+<script>
+    function selectItem(id) {
+        document.getElementById('selected-item-id').value = id;
+        document.getElementById('disambig-form').submit();
+    }
+</script>
+}

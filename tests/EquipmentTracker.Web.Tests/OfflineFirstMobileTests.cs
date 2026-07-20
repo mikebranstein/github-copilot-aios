@@ -388,7 +388,7 @@ public class OfflineFirstMobileTests
         Assert.Equal("conflict", results[0].Status);
         // Plain-language message must be present (AC7: no technical dialog).
         Assert.NotNull(results[0].PlainLanguageMessage);
-        Assert.NotEmpty(results[0].PlainLanguageMessage);
+        Assert.NotEmpty(results[0].PlainLanguageMessage!);
         // Must not contain technical jargon like "conflict detected" or "version A/B".
         Assert.DoesNotContain("version", results[0].PlainLanguageMessage, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("choose", results[0].PlainLanguageMessage, StringComparison.OrdinalIgnoreCase);
